@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@import "./variables.css";
+@import "./theme.css";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-crimson: #991b1f;
+  --color-crimson-hover: #7f161a;
+  --color-crimson-deep: #6b1215;
+  --color-crimson-light: #faf0ec;
+
+  --color-peach: #ffe1c5;
+  --color-peach-light: #fff8f3;
+  --color-peach-subtle: #fff3ea;
+
+  --color-brand-950: #1c1917;
+  --color-brand-900: #292524;
+  --color-brand-800: #44403c;
+  --color-brand-700: #57534e;
+  --color-brand-600: #991b1f;
+  --color-brand-500: #b91c1c;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  background-color: var(--page-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e8ded6;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d6c7bc;
+}

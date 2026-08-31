@@ -1,0 +1,10 @@
+/* Theme mappings */
+:root {
+  --color-primary: var(--brand-crimson);
+  --color-primary-hover: var(--brand-crimson-hover);
+  --color-bg: var(--page-bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border-line);
+  --color-text: var(--text-main);
+  --color-text-muted: var(--text-muted);
+}
