@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '../../../components/Card';
 import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
+import { getDueDateIndicator } from '../../../utils/taskStatus';
 import type { TaskResponse } from '../../../types/task';
 
 export const DirectorTasksPage: React.FC = () => {
@@ -331,6 +332,17 @@ export const DirectorTasksPage: React.FC = () => {
                       >
                         {task.status}
                       </Badge>
+                      {(() => {
+                        const dueInfo = getDueDateIndicator(
+                          task.due_date,
+                          task.status
+                        );
+                        return dueInfo ? (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${dueInfo.className}`}>
+                            {dueInfo.label}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                     <p className="text-xs text-slate-500 line-clamp-1 max-w-xl">
                       {task.description || 'No description provided.'}

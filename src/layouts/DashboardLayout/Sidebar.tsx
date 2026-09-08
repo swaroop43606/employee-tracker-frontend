@@ -30,27 +30,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       case 'director':
         return [
           { name: 'Dashboard', href: '/director/dashboard', icon: LayoutDashboard },
-          { name: 'Review Queue', href: '/director/daily-updates', icon: ClipboardCheck },
-          { name: 'Tasks & Assignments', href: '/director/tasks', icon: ListTodo },
-          { name: 'My Team', href: '/director/employees', icon: Users },
+          { name: 'Daily Update Reviews', href: '/director/daily-updates', icon: ClipboardCheck },
+          { name: 'Tasks', href: '/director/tasks', icon: ListTodo },
+          { name: 'Team', href: '/director/employees', icon: Users },
           { name: 'Notifications', href: '/notifications', icon: Bell },
         ];
       case 'admin':
         return [
           { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-          { name: 'User Management', href: '/admin/users', icon: Users },
+          { name: 'Users', href: '/admin/users', icon: Users },
           { name: 'Departments', href: '/admin/departments', icon: Building2 },
-          { name: 'Roles & RBAC', href: '/admin/roles', icon: Layers },
+          { name: 'Roles', href: '/admin/roles', icon: Layers },
           { name: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldAlert },
-          { name: 'Notifications', href: '/notifications', icon: Bell },
         ];
       case 'employee':
       default:
         return [
           { name: 'Dashboard', href: '/employee/dashboard', icon: LayoutDashboard },
-          { name: 'Daily Tracker', href: '/employee/daily-update', icon: CalendarPlus },
-          { name: 'Daily Updates', href: '/employee/daily-updates', icon: History },
           { name: 'My Tasks', href: '/employee/tasks', icon: CheckSquare },
+          { name: 'Daily Tracker', href: '/employee/daily-update', icon: CalendarPlus },
+          { name: 'Feedback & Reviews', href: '/employee/daily-updates', icon: History },
           { name: 'Notifications', href: '/notifications', icon: Bell },
         ];
     }

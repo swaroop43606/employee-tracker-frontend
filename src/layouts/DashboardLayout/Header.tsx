@@ -19,7 +19,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
-  const { user, roleName } = useAuth();
+  const { user, roleName, isEmployee, isAdmin } = useAuth();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
@@ -45,23 +45,42 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch unread count initially
+  // Fetch unread count initially, poll periodically, and refresh on user actions (Employee & Director only)
   useEffect(() => {
+    if (isAdmin) return;
+
     let isMounted = true;
-    api
-      .get<{ unread_count: number }>('/notifications/unread-count')
-      .then((res) => {
-        if (isMounted && res.success && res.data) {
-          setUnreadCount(res.data.unread_count);
-        }
-      })
-      .catch(() => {
-        // Ignore header unread poll errors
-      });
+
+    const fetchUnreadCount = () => {
+      api
+        .get<{ unread_count: number }>('/notifications/unread-count')
+        .then((res) => {
+          if (isMounted && res.success && res.data) {
+            setUnreadCount(res.data.unread_count);
+          }
+        })
+        .catch(() => {
+          // Ignore header unread poll errors
+        });
+    };
+
+    fetchUnreadCount();
+
+    // Periodic lightweight poll every 45 seconds
+    const intervalId = setInterval(fetchUnreadCount, 45000);
+
+    // Refresh immediately when important actions occur in the app
+    const handleActionRefresh = () => {
+      fetchUnreadCount();
+    };
+    window.addEventListener('notification-refresh', handleActionRefresh);
+
     return () => {
       isMounted = false;
+      clearInterval(intervalId);
+      window.removeEventListener('notification-refresh', handleActionRefresh);
     };
-  }, []);
+  }, [isAdmin]);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -94,43 +113,49 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           <Menu className="w-4 h-4" />
         </button>
 
-        {/* Global Search Bar */}
-        <div className="hidden sm:flex flex-1 max-w-md">
-          <GlobalSearch />
-        </div>
+        {/* Global Search Bar (Hidden for Employee workspace) */}
+        {!isEmployee && (
+          <div className="hidden sm:flex flex-1 max-w-md">
+            <GlobalSearch />
+          </div>
+        )}
       </div>
 
       {/* Right section: notification bell & user menu */}
       <div className="flex items-center gap-3">
-        {/* Notification Bell Dropdown Trigger */}
-        <div className="relative" ref={notificationRef}>
-          <button
-            type="button"
-            onClick={handleToggleNotifications}
-            className={`relative p-2 rounded-xl text-white/90 hover:text-white transition-all flex items-center justify-center ${
-              notificationOpen ? 'bg-white/20 text-white' : 'hover:bg-white/10'
-            }`}
-            aria-label="Notifications"
-            aria-expanded={notificationOpen}
-            aria-haspopup="dialog"
-          >
-            <Bell className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-[#ffe1c5] text-[#991b1f] text-[10px] font-black rounded-full flex items-center justify-center shadow-xs ring-2 ring-[#7f161a]">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
+        {/* Notification Bell Dropdown Trigger (Hidden for Admin workspace) */}
+        {!isAdmin && (
+          <>
+            <div className="relative" ref={notificationRef}>
+              <button
+                type="button"
+                onClick={handleToggleNotifications}
+                className={`relative p-2 rounded-xl text-white/90 hover:text-white transition-all flex items-center justify-center ${
+                  notificationOpen ? 'bg-white/20 text-white' : 'hover:bg-white/10'
+                }`}
+                aria-label="Notifications"
+                aria-expanded={notificationOpen}
+                aria-haspopup="dialog"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-[#ffe1c5] text-[#991b1f] text-[10px] font-black rounded-full flex items-center justify-center shadow-xs ring-2 ring-[#7f161a]">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
 
-          {/* Notification Popover Dropdown */}
-          <NotificationPopover
-            isOpen={notificationOpen}
-            onClose={() => setNotificationOpen(false)}
-            onUnreadCountChange={(count) => setUnreadCount(count)}
-          />
-        </div>
+              {/* Notification Popover Dropdown */}
+              <NotificationPopover
+                isOpen={notificationOpen}
+                onClose={() => setNotificationOpen(false)}
+                onUnreadCountChange={(count) => setUnreadCount(count)}
+              />
+            </div>
 
-        <div className="h-6 w-px bg-white/20 mx-0.5" />
+            <div className="h-6 w-px bg-white/20 mx-0.5" />
+          </>
+        )}
 
         {/* User Dropdown */}
         <div className="relative" ref={dropdownRef}>

@@ -6,12 +6,8 @@ import {
   Layers,
   ShieldAlert,
   ArrowRight,
-  UserCheck,
-  UserMinus,
-  UserX,
   Clock,
   RefreshCw,
-  ListTodo,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
@@ -142,11 +138,11 @@ export const AdminDashboard: React.FC = () => {
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Users</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Users</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{stats?.total_users ?? 0}</h3>
               <p className="text-[10px] text-slate-500 font-semibold mt-1">
-                {(stats?.users_by_role?.find(r => r.role_name === 'director')?.count ?? 0)} Directors •{' '}
-                {(stats?.users_by_role?.find(r => r.role_name === 'employee')?.count ?? 0)} Employees
+                {stats?.active_users ?? 0} active • {stats?.inactive_users ?? 0} inactive
+                {(stats?.suspended_users ?? 0) > 0 ? ` • ${stats?.suspended_users} suspended` : ''}
               </p>
             </div>
           </CardContent>
@@ -171,7 +167,7 @@ export const AdminDashboard: React.FC = () => {
               <Layers className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">System Roles</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Roles</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{stats?.total_roles ?? 0}</h3>
               <p className="text-[10px] text-slate-500 font-semibold mt-1">{stats?.active_roles ?? 0} Active RBAC Levels</p>
             </div>
@@ -184,53 +180,10 @@ export const AdminDashboard: React.FC = () => {
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Audit Records</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Audit Logs</p>
               <h3 className="text-2xl font-bold text-rose-600 mt-0.5">{stats?.total_audit_logs ?? 0}</h3>
-              <p className="text-[10px] text-slate-500 font-semibold mt-1">Immutable Ledger Logs</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">Immutable Ledger Records</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* User status breakdown cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-emerald-600" />
-              <span className="font-semibold text-slate-500">Active Accounts</span>
-            </div>
-            <span className="font-bold text-emerald-600 text-sm">{stats?.active_users ?? 0}</span>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <UserMinus className="w-4 h-4 text-slate-500" />
-              <span className="font-semibold text-slate-500">Inactive Accounts</span>
-            </div>
-            <span className="font-bold text-slate-600 text-sm">{stats?.inactive_users ?? 0}</span>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <UserX className="w-4 h-4 text-rose-600" />
-              <span className="font-semibold text-slate-500">Suspended Accounts</span>
-            </div>
-            <span className="font-bold text-rose-600 text-sm">{stats?.suspended_users ?? 0}</span>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <ListTodo className="w-4 h-4 text-indigo-600" />
-              <span className="font-semibold text-slate-500">Total Tasks</span>
-            </div>
-            <span className="font-bold text-indigo-600 text-sm">{stats?.total_tasks ?? 0}</span>
           </CardContent>
         </Card>
       </div>

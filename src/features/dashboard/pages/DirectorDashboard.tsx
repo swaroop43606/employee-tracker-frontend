@@ -15,6 +15,7 @@ import { Button } from '../../../components/Button';
 import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
+import { formatDate } from '../../../utils/date';
 import type { UserListItem } from '../../../types/user';
 import type { TaskAssignmentResponse } from '../../../types/task';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
@@ -31,6 +32,7 @@ export const DirectorDashboard: React.FC = () => {
   const [completedAssignments, setCompletedAssignments] = useState(0);
   const [pendingReviews, setPendingReviews] = useState(0);
   const [approvedUpdates, setApprovedUpdates] = useState(0);
+  const [pendingUpdates, setPendingUpdates] = useState<DailyUpdateListItem[]>([]);
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -66,7 +68,9 @@ export const DirectorDashboard: React.FC = () => {
         page_size: 100,
       });
       const updates = updatesRes.data?.items || [];
-      setPendingReviews(updates.filter(u => u.overall_status === 'submitted').length);
+      const pending = updates.filter(u => u.overall_status === 'submitted' && u.employee_id !== user?.user_id);
+      setPendingUpdates(pending);
+      setPendingReviews(pending.length);
       setApprovedUpdates(updates.filter(u => u.overall_status === 'reviewed').length);
 
     } catch (err: any) {
@@ -180,46 +184,65 @@ export const DirectorDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Quick Action Navigation Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card hoverEffect>
-          <CardHeader>
-            <h3 className="text-base font-bold text-slate-900">Review Queue</h3>
-            <NavLink to="/director/daily-updates" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-              View Queue &rarr;
-            </NavLink>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-slate-500 mb-4">
-              Review and approve daily work logs submitted by your subordinate team members.
+      {/* Pending Daily Updates Waiting for Review */}
+      <Card>
+        <CardHeader className="flex justify-between items-center">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Pending Reviews</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Daily updates submitted by your team waiting for review
             </p>
-            <NavLink to="/director/daily-updates">
-              <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Review Submissions
-              </Button>
-            </NavLink>
-          </CardContent>
-        </Card>
+          </div>
+          <NavLink
+            to="/director/daily-updates"
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+          >
+            All Reviews <ArrowRight className="w-3.5 h-3.5" />
+          </NavLink>
+        </CardHeader>
+        <CardContent className="p-0">
+          {pendingUpdates.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No daily updates are waiting for review.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {pendingUpdates.slice(0, 5).map((item) => (
+                <div
+                  key={item.update_id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-800">
+                        {item.employee_name || 'Team Member'}
+                      </span>
+                      <span className="text-xs text-slate-400">•</span>
+                      <span className="text-xs font-medium text-slate-500">
+                        {formatDate(item.update_date)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {item.summary || (item.items_count ? `${item.items_count} tasks logged • ${item.total_hours}h` : 'Daily update submitted')}
+                    </p>
+                  </div>
 
-        <Card hoverEffect>
-          <CardHeader>
-            <h3 className="text-base font-bold text-slate-900">Task Management</h3>
-            <NavLink to="/director/tasks" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-              Manage Tasks &rarr;
-            </NavLink>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-slate-500 mb-4">
-              Create new departmental tasks, assign tasks to employees, and monitor progress.
-            </p>
-            <NavLink to="/director/tasks">
-              <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Tasks & Assignments
-              </Button>
-            </NavLink>
-          </CardContent>
-        </Card>
-      </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <Badge variant="warning" className="uppercase text-[10px]">
+                      Pending Review
+                    </Badge>
+                    <NavLink to={`/director/daily-updates/${item.update_id}`}>
+                      <Button variant="primary" size="sm" className="text-xs py-1 px-3">
+                        Review
+                      </Button>
+                    </NavLink>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -27,8 +27,6 @@ export const AdminAuditLogsPage: React.FC = () => {
   // Filters
   const [searchVal, setSearchVal] = useState(initialSearch);
   const [selectedUser, setSelectedUser] = useState('');
-  const [actionQuery, setActionQuery] = useState('');
-  const [entityTypeQuery, setEntityTypeQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -53,8 +51,6 @@ export const AdminAuditLogsPage: React.FC = () => {
       const res = await api.getPaginated<AuditLogResponse>('/audit-logs', {
         search: searchVal || undefined,
         user_id: selectedUser || undefined,
-        action: actionQuery || undefined,
-        entity_type: entityTypeQuery || undefined,
         date_from: dateFrom ? new Date(dateFrom).toISOString() : undefined,
         date_to: dateTo ? new Date(dateTo).toISOString() : undefined,
         page,
@@ -86,7 +82,7 @@ export const AdminAuditLogsPage: React.FC = () => {
 
   useEffect(() => {
     fetchAuditLogs();
-  }, [page, searchVal, selectedUser, actionQuery, entityTypeQuery, dateFrom, dateTo]);
+  }, [page, searchVal, selectedUser, dateFrom, dateTo]);
 
   return (
     <div className="space-y-6">
@@ -99,15 +95,15 @@ export const AdminAuditLogsPage: React.FC = () => {
       {/* Filters Card */}
       <Card>
         <CardContent className="p-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Search */}
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 mb-1 uppercase">Search Query</span>
+              <span className="text-[10px] font-bold text-slate-400 mb-1 uppercase">Search Logs</span>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="IP address, description, action..."
+                  placeholder="Search by action, description, entity, or IP..."
                   value={searchVal}
                   onChange={(e) => {
                     setSearchVal(e.target.value);
@@ -136,36 +132,6 @@ export const AdminAuditLogsPage: React.FC = () => {
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Action query input */}
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 mb-1 uppercase">Action Type</span>
-              <input
-                type="text"
-                placeholder="LOGIN, PROFILE_UPDATED..."
-                value={actionQuery}
-                onChange={(e) => {
-                  setActionQuery(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-              />
-            </div>
-
-            {/* Entity type input */}
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 mb-1 uppercase">Entity Scope</span>
-              <input
-                type="text"
-                placeholder="user, department, task..."
-                value={entityTypeQuery}
-                onChange={(e) => {
-                  setEntityTypeQuery(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-              />
             </div>
           </div>
 
@@ -198,21 +164,21 @@ export const AdminAuditLogsPage: React.FC = () => {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchVal('');
-                setSelectedUser('');
-                setActionQuery('');
-                setEntityTypeQuery('');
-                setDateFrom('');
-                setDateTo('');
-                setPage(1);
-              }}
-            >
-              Reset Filters
-            </Button>
+            {(searchVal || selectedUser || dateFrom || dateTo) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchVal('');
+                  setSelectedUser('');
+                  setDateFrom('');
+                  setDateTo('');
+                  setPage(1);
+                }}
+              >
+                Reset Filters
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

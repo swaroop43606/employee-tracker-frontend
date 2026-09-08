@@ -57,9 +57,9 @@ export const DailyUpdatesListPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Daily Updates Log"
-        subtitle="Browse all your past daily tracker submissions, summaries, and review status logs."
-        badgeText="Submissions History"
+        title="Feedback & Reviews"
+        subtitle="Browse your past daily updates, director reviews, and feedback history."
+        badgeText="Update History"
       />
 
       {/* Filters Bar */}

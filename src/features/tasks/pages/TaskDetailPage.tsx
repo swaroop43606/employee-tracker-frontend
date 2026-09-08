@@ -8,6 +8,7 @@ import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
+import { getErrorMessage } from '../../../utils/errorHandling';
 import type { TaskAssignmentResponse, AssignmentStatus, TaskHistoryResponse } from '../../../types/task';
 
 export const TaskDetailPage: React.FC = () => {
@@ -51,8 +52,8 @@ export const TaskDetailPage: React.FC = () => {
           // Ignore history load failures if employee is not authorized or no logs exist
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch task assignment details.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch task assignment details.'));
     } finally {
       setLoading(false);
     }
@@ -83,8 +84,8 @@ export const TaskDetailPage: React.FC = () => {
         setSuccess('Task assignment updated successfully!');
         setTimeout(() => setSuccess(null), 3000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to update assignment.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to update assignment.'));
     } finally {
       setSaving(false);
     }
@@ -230,7 +231,15 @@ export const TaskDetailPage: React.FC = () => {
                   </label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as AssignmentStatus)}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as AssignmentStatus;
+                      setStatus(newStatus);
+                      if (newStatus === 'completed') {
+                        setCompletionPercentage(100);
+                      } else if (newStatus === 'active' && completionPercentage === 100) {
+                        setCompletionPercentage(90);
+                      }
+                    }}
                     className="block w-full py-2.5 px-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all font-semibold"
                   >
                     <option value="active">Active</option>
@@ -255,7 +264,15 @@ export const TaskDetailPage: React.FC = () => {
                     max="100"
                     step="5"
                     value={completionPercentage}
-                    onChange={(e) => setCompletionPercentage(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setCompletionPercentage(val);
+                      if (val === 100) {
+                        setStatus('completed');
+                      } else if (val < 100 && status === 'completed') {
+                        setStatus('active');
+                      }
+                    }}
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                   />
                 </div>

@@ -9,6 +9,7 @@ import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import { Button } from '../../../components/Button';
+import { getDueDateIndicator } from '../../../utils/taskStatus';
 import type { TaskAssignmentResponse } from '../../../types/task';
 
 export const TasksListPage: React.FC = () => {
@@ -172,6 +173,18 @@ export const TasksListPage: React.FC = () => {
                       >
                         {assignment.task_priority}
                       </Badge>
+                      {(() => {
+                        const dueInfo = getDueDateIndicator(
+                          assignment.due_date,
+                          assignment.status,
+                          assignment.completion_percentage
+                        );
+                        return dueInfo ? (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${dueInfo.className}`}>
+                            {dueInfo.label}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">

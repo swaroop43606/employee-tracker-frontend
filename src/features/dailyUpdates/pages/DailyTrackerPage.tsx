@@ -21,6 +21,9 @@ import { ErrorState } from '../../../components/Feedback';
 import type { TaskAssignmentResponse } from '../../../types/task';
 import type { DailyUpdateResponse, DailyUpdateItemCreate, DailyUpdateItemStatus } from '../../../types/dailyUpdate';
 import type { AttachmentResponse } from '../../../types/attachment';
+import { getLocalDate } from '../../../utils/date';
+import { triggerNotificationRefresh } from '../../../utils/notifications';
+import { getErrorMessage } from '../../../utils/errorHandling';
 
 export const DailyTrackerPage: React.FC = () => {
   const { user } = useAuth();
@@ -32,7 +35,7 @@ export const DailyTrackerPage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
 
   // Today's date info
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = getLocalDate();
   const todayFormatted = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -47,6 +50,9 @@ export const DailyTrackerPage: React.FC = () => {
 
   // Form Fields
   const [summary, setSummary] = useState('');
+  const [completedWork, setCompletedWork] = useState('');
+  const [nextWorkPlan, setNextWorkPlan] = useState('');
+  const [blockers, setBlockers] = useState('');
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   const [itemForms, setItemForms] = useState<Record<string, {
     work_description: string;
@@ -90,6 +96,9 @@ export const DailyTrackerPage: React.FC = () => {
           const update = updateRes.data;
           setTodayUpdate(update);
           setSummary(update.summary || '');
+          setCompletedWork(update.completed_work || '');
+          setNextWorkPlan(update.next_work_plan || '');
+          setBlockers(update.blockers || '');
 
           // Pre-select tasks from existing update
           const existingIds = update.items.map(i => i.assignment_id);
@@ -113,14 +122,15 @@ export const DailyTrackerPage: React.FC = () => {
             setAttachments(attachRes.data);
           }
         }
-      } catch (err: any) {
-        if (err.response?.status !== 404) {
+      } catch (err: unknown) {
+        const errorMsg = getErrorMessage(err);
+        if (!errorMsg.includes('404') && !errorMsg.toLowerCase().includes('not found')) {
           throw err;
         }
         // 404 means no update exists for today yet, which is normal.
       }
-    } catch (err: any) {
-      setError(err.message || 'Unable to load today\'s daily tracker data.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to load today\'s daily tracker data.'));
     } finally {
       setLoading(false);
     }
@@ -187,6 +197,9 @@ export const DailyTrackerPage: React.FC = () => {
         // Update existing update draft
         const res = await api.patch<DailyUpdateResponse>(`/daily-updates/${todayUpdate.update_id}`, {
           summary,
+          completed_work: completedWork,
+          next_work_plan: nextWorkPlan,
+          blockers,
           status: 'draft',
           items: itemsPayload,
         });
@@ -199,6 +212,9 @@ export const DailyTrackerPage: React.FC = () => {
         const res = await api.post<DailyUpdateResponse>('/daily-updates', {
           update_date: todayDateStr,
           summary,
+          completed_work: completedWork,
+          next_work_plan: nextWorkPlan,
+          blockers,
           status: 'draft',
           items: itemsPayload,
         });
@@ -208,8 +224,8 @@ export const DailyTrackerPage: React.FC = () => {
         }
       }
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to save draft update.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to save draft update.'));
     } finally {
       setSaving(false);
     }
@@ -231,6 +247,9 @@ export const DailyTrackerPage: React.FC = () => {
         const createRes = await api.post<DailyUpdateResponse>('/daily-updates', {
           update_date: todayDateStr,
           summary,
+          completed_work: completedWork,
+          next_work_plan: nextWorkPlan,
+          blockers,
           status: 'draft',
           items: itemsPayload,
         });
@@ -239,6 +258,9 @@ export const DailyTrackerPage: React.FC = () => {
         // Save latest updates to draft first
         const patchRes = await api.patch<DailyUpdateResponse>(`/daily-updates/${currentUpdate.update_id}`, {
           summary,
+          completed_work: completedWork,
+          next_work_plan: nextWorkPlan,
+          blockers,
           status: 'draft',
           items: itemsPayload,
         });
@@ -253,13 +275,14 @@ export const DailyTrackerPage: React.FC = () => {
         if (submitRes.success && submitRes.data) {
           setTodayUpdate(submitRes.data);
           setSuccess('Daily update submitted successfully for Director review!');
+          triggerNotificationRefresh();
           setTimeout(() => {
             navigate('/employee/daily-updates');
           }, 1200);
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit daily update.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to submit daily update.'));
     } finally {
       setSaving(false);
     }
@@ -470,6 +493,58 @@ export const DailyTrackerPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Workflow Details (Completed Work, Next Work Plan, Blockers) */}
+      <Card>
+        <CardHeader>
+          <h3 className="text-sm font-bold text-stone-900">
+            Work Progress & Next Steps (Optional)
+          </h3>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Completed Work
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                value={completedWork}
+                onChange={(e) => setCompletedWork(e.target.value)}
+                placeholder="e.g., Completed login form validation."
+                className="block w-full p-3 text-xs bg-[#faf7f5] border border-[#efe7e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffe1c5] focus:border-[#991b1f] transition-all placeholder:text-stone-400 disabled:opacity-75 disabled:cursor-not-allowed text-stone-900 resize-y"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Next Work Plan
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                value={nextWorkPlan}
+                onChange={(e) => setNextWorkPlan(e.target.value)}
+                placeholder="e.g., Continue implementing dashboard metrics."
+                className="block w-full p-3 text-xs bg-[#faf7f5] border border-[#efe7e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffe1c5] focus:border-[#991b1f] transition-all placeholder:text-stone-400 disabled:opacity-75 disabled:cursor-not-allowed text-stone-900 resize-y"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Blockers
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                value={blockers}
+                onChange={(e) => setBlockers(e.target.value)}
+                placeholder="e.g., Waiting for clarification on API requirements."
+                className="block w-full p-3 text-xs bg-[#faf7f5] border border-[#efe7e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffe1c5] focus:border-[#991b1f] transition-all placeholder:text-stone-400 disabled:opacity-75 disabled:cursor-not-allowed text-stone-900 resize-y"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 5. TASKS WORKED ON TODAY */}
       <Card>

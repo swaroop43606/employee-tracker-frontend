@@ -5,8 +5,8 @@ import {
   CheckSquare,
   Clock,
   ArrowRight,
-  Sparkles,
-  Bell,
+  ListTodo,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
@@ -17,7 +17,8 @@ import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import type { TaskAssignmentResponse } from '../../../types/task';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
-import type { UnreadCountResponse } from '../../../types/notification';
+import { getLocalDate } from '../../../utils/date';
+import { getDueDateIndicator } from '../../../utils/taskStatus';
 
 export const EmployeeDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -25,9 +26,12 @@ export const EmployeeDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // States for stats
+  const [totalTasks, setTotalTasks] = useState(0);
+  const [pendingTasks, setPendingTasks] = useState(0);
+  const [inProgressTasks, setInProgressTasks] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
   const [activeTasks, setActiveTasks] = useState<TaskAssignmentResponse[]>([]);
   const [todayUpdate, setTodayUpdate] = useState<DailyUpdateListItem | null>(null);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [recentUpdates, setRecentUpdates] = useState<DailyUpdateListItem[]>([]);
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
@@ -41,14 +45,27 @@ export const EmployeeDashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const todayDateStr = new Date().toISOString().split('T')[0];
+      const todayDateStr = getLocalDate();
 
-      // Fetch active task assignments
+      // Fetch employee task assignments (limit 100 for lifecycle metrics)
       const tasksRes = await api.getPaginated<TaskAssignmentResponse>('/task-assignments', {
         employee_id: user?.user_id,
-        status_filter: 'active',
-        page_size: 50,
+        page_size: 100,
       });
+      const allTasks = tasksRes.data?.items || [];
+      setTotalTasks(allTasks.length);
+
+      const completed = allTasks.filter(t => t.status === 'completed' || t.completion_percentage === 100);
+      const inProg = allTasks.filter(t => t.status === 'active' && t.completion_percentage > 0 && t.completion_percentage < 100);
+      const pending = allTasks.filter(t => t.status === 'active' && t.completion_percentage === 0);
+
+      setCompletedTasks(completed.length);
+      setInProgressTasks(inProg.length);
+      setPendingTasks(pending.length);
+
+      // Active tasks for the table view (open & in progress)
+      const activeList = allTasks.filter(t => t.status !== 'completed' && t.completion_percentage < 100);
+      setActiveTasks(activeList);
 
       // Fetch today's daily update
       let todayUpdateItem: DailyUpdateListItem | null = null;
@@ -65,17 +82,6 @@ export const EmployeeDashboard: React.FC = () => {
         // Fallback or ignore date check errors
       }
 
-      // Fetch unread notifications count
-      let unreadCount = 0;
-      try {
-        const unreadRes = await api.get<UnreadCountResponse>('/notifications/unread-count');
-        if (unreadRes.success && unreadRes.data) {
-          unreadCount = unreadRes.data.unread_count;
-        }
-      } catch {
-        // Ignore notification errors
-      }
-
       // Fetch recent daily updates list
       let recentList: DailyUpdateListItem[] = [];
       try {
@@ -90,9 +96,7 @@ export const EmployeeDashboard: React.FC = () => {
         // Ignore recent history errors
       }
 
-      setActiveTasks(tasksRes.data?.items || []);
       setTodayUpdate(todayUpdateItem);
-      setUnreadNotifications(unreadCount);
       setRecentUpdates(recentList);
     } catch (err: any) {
       setError(err.message || 'Unable to load dashboard metrics.');
@@ -117,9 +121,6 @@ export const EmployeeDashboard: React.FC = () => {
     return <ErrorState message={error} onRetry={loadDashboardData} />;
   }
 
-  // Count task status types
-  const activeCount = activeTasks.length;
-
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
@@ -135,7 +136,11 @@ export const EmployeeDashboard: React.FC = () => {
             Welcome back, {user?.full_name?.split(' ')[0]}!
           </h1>
           <p className="text-xs text-white/85 mt-0.5 max-w-lg">
-            Track your assigned daily tasks, record hours spent, and submit your daily update for Director review.
+            {todayUpdate?.overall_status === 'submitted'
+              ? "Today's update has been submitted for Director review."
+              : todayUpdate?.overall_status === 'reviewed'
+              ? "Today's update has been reviewed by your Director."
+              : "Today's update is pending. Record your hours and submit your daily update."}
           </p>
         </div>
 
@@ -147,70 +152,64 @@ export const EmployeeDashboard: React.FC = () => {
               leftIcon={<CalendarPlus className="w-3.5 h-3.5 text-[#991b1f]" />}
               className="bg-white hover:bg-[#fff8f3] text-[#991b1f] font-bold shadow-sm border border-white/20 text-xs py-1.5 px-3"
             >
-              Fill Today's Update
+              {todayUpdate?.overall_status === 'submitted' || todayUpdate?.overall_status === 'reviewed'
+                ? "View Today's Update"
+                : "Fill Today's Update"}
             </Button>
           </NavLink>
         </div>
       </div>
 
-      {/* Metrics Row */}
+      {/* Task Lifecycle Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Tasks */}
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
               <CheckSquare className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Assignments</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{activeCount}</h3>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Tasks</p>
+              <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{totalTasks}</h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Today's Hours</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-0.5">
-                {todayUpdate ? todayUpdate.total_hours : 0} hrs
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
-
+        {/* Pending Tasks */}
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 flex-shrink-0">
-              <Sparkles className="w-6 h-6" />
+              <Clock className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Today's Update</p>
-              <div className="mt-1">
-                {todayUpdate ? (
-                  <Badge variant={todayUpdate.overall_status === 'submitted' ? 'success' : 'warning'} className="uppercase">
-                    {todayUpdate.overall_status}
-                  </Badge>
-                ) : (
-                  <Badge variant="neutral" className="uppercase">
-                    Not Started
-                  </Badge>
-                )}
-              </div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending</p>
+              <h3 className="text-2xl font-bold text-amber-600 mt-0.5">{pendingTasks}</h3>
             </div>
           </CardContent>
         </Card>
 
+        {/* In Progress */}
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 flex-shrink-0">
-              <Bell className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-600 flex-shrink-0">
+              <ListTodo className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inbox Alerts</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{unreadNotifications}</h3>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">In Progress</p>
+              <h3 className="text-2xl font-bold text-sky-600 mt-0.5">{inProgressTasks}</h3>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Completed */}
+        <Card>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Completed</p>
+              <h3 className="text-2xl font-bold text-emerald-600 mt-0.5">{completedTasks}</h3>
             </div>
           </CardContent>
         </Card>
@@ -257,7 +256,19 @@ export const EmployeeDashboard: React.FC = () => {
                             {assignment.employee_notes || 'No notes added'}
                           </p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const dueInfo = getDueDateIndicator(
+                              assignment.due_date,
+                              assignment.status,
+                              assignment.completion_percentage
+                            );
+                            return dueInfo ? (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${dueInfo.className}`}>
+                                {dueInfo.label}
+                              </span>
+                            ) : null;
+                          })()}
                           <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                             {assignment.completion_percentage}%
                           </span>

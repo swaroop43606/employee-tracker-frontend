@@ -18,6 +18,8 @@ import { PageHeader } from '../../../components/PageHeader';
 import { Card, CardHeader, CardContent } from '../../../components/Card';
 import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
+import { triggerNotificationRefresh } from '../../../utils/notifications';
+import { getErrorMessage } from '../../../utils/errorHandling';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import type { DailyUpdateResponse } from '../../../types/dailyUpdate';
@@ -119,12 +121,13 @@ export const DirectorReviewDetailPage: React.FC = () => {
       if (res.success && res.data) {
         setSuccess(`Review submitted successfully as '${status}'!`);
         setReviewComment('');
+        triggerNotificationRefresh();
         // Refresh details & reviews
         await loadUpdateDetails();
         setTimeout(() => setSuccess(null), 3000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit review action.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to submit review action.'));
     } finally {
       setSaving(false);
     }
@@ -145,12 +148,13 @@ export const DirectorReviewDetailPage: React.FC = () => {
       if (res.success && res.data) {
         setNewCommentText('');
         setReplyTarget(null);
+        triggerNotificationRefresh();
         // Refresh comments list
         const commentRes = await api.get<CommentResponse[]>(`/daily-updates/${id}/comments`);
         setComments(commentRes.data || []);
       }
-    } catch (err: any) {
-      alert(err.message || 'Failed to post comment.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to post comment.'));
     }
   };
 
@@ -320,6 +324,38 @@ export const DirectorReviewDetailPage: React.FC = () => {
               </p>
             </CardContent>
           </Card>
+
+          {/* Work Progress & Next Steps (Optional Fields) */}
+          {(update.completed_work || update.next_work_plan || update.blockers) && (
+            <Card>
+              <CardHeader>
+                <h3 className="text-base font-bold text-slate-900">Work Progress & Next Steps</h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {update.completed_work && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Completed Work</h4>
+                    <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap">{update.completed_work}</p>
+                  </div>
+                )}
+                {update.next_work_plan && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Next Work Plan</h4>
+                    <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap">{update.next_work_plan}</p>
+                  </div>
+                )}
+                {update.blockers && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="text-xs font-bold text-rose-700 uppercase tracking-wider">Blockers</h4>
+                      <Badge variant="danger" className="text-[10px]">Attention Required</Badge>
+                    </div>
+                    <p className="text-xs text-rose-800 bg-rose-50 p-3 rounded-xl border border-rose-100 whitespace-pre-wrap">{update.blockers}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Daily Update Items Logged */}
           <Card>

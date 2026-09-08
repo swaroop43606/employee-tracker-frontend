@@ -259,6 +259,38 @@ export const DailyUpdateDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Columns: Tasks worked on */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Work Progress & Details */}
+          {(update.completed_work || update.next_work_plan || update.blockers) && (
+            <Card>
+              <CardHeader>
+                <h3 className="text-base font-bold text-slate-900">Work Progress & Next Steps</h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {update.completed_work && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Completed Work</h4>
+                    <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap">{update.completed_work}</p>
+                  </div>
+                )}
+                {update.next_work_plan && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Next Work Plan</h4>
+                    <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap">{update.next_work_plan}</p>
+                  </div>
+                )}
+                {update.blockers && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="text-xs font-bold text-rose-700 uppercase tracking-wider">Blockers</h4>
+                      <Badge variant="danger" className="text-[10px]">Attention Required</Badge>
+                    </div>
+                    <p className="text-xs text-rose-800 bg-rose-50 p-3 rounded-xl border border-rose-100 whitespace-pre-wrap">{update.blockers}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <h3 className="text-base font-bold text-slate-900">Logged Tasks Log</h3>

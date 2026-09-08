@@ -231,7 +231,14 @@ export const AppRoutes: React.FC = () => {
           />
 
           {/* ── Shared Authenticated Routes ── */}
-          <Route path="notifications" element={<NotificationsPage />} />
+          <Route
+            path="notifications"
+            element={
+              <RoleGuard allowedRoles={['employee', 'director']}>
+                <NotificationsPage />
+              </RoleGuard>
+            }
+          />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
