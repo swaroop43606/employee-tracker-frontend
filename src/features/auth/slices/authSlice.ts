@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { api } from '../../../services/api';
 import { authStorage } from '../../../services/authStorage';
 import type { CurrentUser } from '../../../types/user';
@@ -82,6 +82,9 @@ const authSlice = createSlice({
     clearAuthError: (state) => {
       state.error = null;
     },
+    updateUserSuccess: (state, action: PayloadAction<CurrentUser>) => {
+      state.user = action.payload;
+    },
     resetAuthState: (state) => {
       state.user = null;
       state.token = null;
@@ -141,5 +144,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, resetAuthState } = authSlice.actions;
+export const { clearAuthError, updateUserSuccess, resetAuthState } = authSlice.actions;
 export default authSlice.reducer;

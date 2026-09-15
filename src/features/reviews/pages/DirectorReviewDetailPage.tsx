@@ -11,6 +11,8 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
@@ -22,6 +24,7 @@ import { triggerNotificationRefresh } from '../../../utils/notifications';
 import { getErrorMessage } from '../../../utils/errorHandling';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
+import { formatDate, formatDateTime } from '../../../utils/date';
 import type { DailyUpdateResponse } from '../../../types/dailyUpdate';
 import type { ReviewResponse, ReviewStatus } from '../../../types/review';
 import type { CommentResponse } from '../../../types/comment';
@@ -287,14 +290,25 @@ export const DirectorReviewDetailPage: React.FC = () => {
 
       <PageHeader
         title={`Review Update: ${update.employee_name}`}
-        subtitle={`Submitted on: ${new Date(update.update_date).toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        })}`}
+        subtitle={`Employee Code: ${update.employee_code || 'N/A'} • Daily Update Review`}
         badgeText="Review Workspace"
       />
+
+      <div className="flex flex-wrap items-center gap-6 text-xs bg-slate-50/80 border border-slate-200/60 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 text-slate-600">
+          <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span>Update Date: <strong className="text-slate-800">{formatDate(update.update_date)}</strong></span>
+        </div>
+        <span className="text-slate-300 hidden sm:inline">•</span>
+        <div className="flex items-center gap-2 text-slate-600">
+          <span>Submitted: <strong className="text-slate-800">{update.submitted_at ? formatDateTime(update.submitted_at) : 'Not Submitted'}</strong></span>
+        </div>
+        <span className="text-slate-300 hidden sm:inline">•</span>
+        <div className="flex items-center gap-2 text-indigo-700 font-medium">
+          <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span>Last Updated by Employee: <strong className="text-slate-900">{formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}</strong></span>
+        </div>
+      </div>
 
       {success && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-xl flex items-center gap-2">
@@ -468,8 +482,58 @@ export const DirectorReviewDetailPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* Right Column: Review action box & attachments */}
+        {/* Right Column: Submission Details, Review action box & attachments */}
         <div className="space-y-6">
+          {/* Submission Details Card */}
+          <Card>
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">Submission Details</h3>
+                <Badge
+                  variant={
+                    update.overall_status === 'reviewed'
+                      ? 'success'
+                      : update.overall_status === 'submitted'
+                      ? 'warning'
+                      : 'neutral'
+                  }
+                  className="uppercase text-[10px] font-bold"
+                >
+                  {update.overall_status}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3.5">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Update Date
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {formatDate(update.update_date)}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Submitted
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {update.submitted_at ? formatDateTime(update.submitted_at) : 'Not Submitted'}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                  <Clock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  Last Updated by Employee
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Action: Review workspace */}
           <Card className="border border-indigo-200">
             <CardHeader>

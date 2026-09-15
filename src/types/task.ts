@@ -10,7 +10,7 @@ export interface TaskResponse {
   priority: TaskPriority;
   start_date: string | null;
   due_date: string | null;
-  created_by: string;
+  created_by: string | null;
   creator_name: string | null;
   status: TaskStatus;
   assignments_count: number;
@@ -27,7 +27,7 @@ export interface TaskAssignmentResponse {
   employee_id: string;
   employee_name: string | null;
   employee_code: string | null;
-  assigned_by: string;
+  assigned_by: string | null;
   assigned_by_name: string | null;
   assigned_at: string;
   start_date: string | null;
@@ -42,7 +42,7 @@ export interface TaskHistoryResponse {
   history_id: string;
   task_id: string;
   assignment_id: string | null;
-  changed_by: string;
+  changed_by: string | null;
   changed_by_name: string | null;
   action_type: string;
   old_status: string | null;

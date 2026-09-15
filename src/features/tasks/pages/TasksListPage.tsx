@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { Search, SlidersHorizontal, Clock, ArrowRight } from 'lucide-react';
+import { NavLink, useSearchParams } from 'react-router-dom';
+import { Search, SlidersHorizontal, Clock, ArrowRight, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
 import { PageHeader } from '../../../components/PageHeader';
@@ -9,12 +9,14 @@ import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import { Button } from '../../../components/Button';
-import { getDueDateIndicator } from '../../../utils/taskStatus';
+import { getDueDateIndicator, matchesStatusFilter } from '../../../utils/taskStatus';
 import type { TaskAssignmentResponse } from '../../../types/task';
 
 export const TasksListPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Data states
@@ -22,18 +24,45 @@ export const TasksListPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Filters
+  // Filters (sync with URL search params)
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || '');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
 
-  const fetchMyAssignments = async () => {
-    setLoading(true);
+  // Debounce search input for automatic filtering as user types
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    const urlStatus = searchParams.get('status') || '';
+    if (urlStatus !== statusFilter) {
+      setStatusFilter(urlStatus);
+      setPage(1);
+    }
+  }, [searchParams]);
+
+  const fetchMyAssignments = async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.getPaginated<TaskAssignmentResponse>('/task-assignments', {
         employee_id: user?.user_id,
         status_filter: statusFilter || undefined,
+        search: debouncedSearch || undefined,
+        priority_filter: priorityFilter || undefined,
         page,
         page_size: 10,
       });
@@ -41,12 +70,22 @@ export const TasksListPage: React.FC = () => {
       if (res.success && res.data) {
         let items = res.data.items || [];
 
-        // Client-side filtering for priority and title search if backend does not fully support it
-        if (search) {
+        // Apply centralized status filter matcher to guarantee frontend consistency
+        if (statusFilter) {
+          items = items.filter((item) => matchesStatusFilter(item, statusFilter));
+        } else {
+          // When no status filter is selected ("All"), show all non-dropped/non-cancelled assignments
+          items = items.filter((item) => matchesStatusFilter(item, 'all'));
+        }
+
+        // Additional client-side filtering safeguards for search & priority
+        if (debouncedSearch) {
+          const q = debouncedSearch.toLowerCase();
           items = items.filter(
             (item) =>
-              (item.task_title?.toLowerCase().includes(search.toLowerCase()) ||
-                item.task_code?.toLowerCase().includes(search.toLowerCase()))
+              item.task_title?.toLowerCase().includes(q) ||
+              item.task_code?.toLowerCase().includes(q) ||
+              item.employee_notes?.toLowerCase().includes(q)
           );
         }
         if (priorityFilter) {
@@ -60,16 +99,17 @@ export const TasksListPage: React.FC = () => {
       setError(err.message || 'Failed to fetch task assignments.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchMyAssignments();
-  }, [user, page, statusFilter, priorityFilter]);
+  }, [user, page, statusFilter, priorityFilter, debouncedSearch]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchMyAssignments();
+  const handleRefresh = () => {
+    if (loading || refreshing) return;
+    fetchMyAssignments(true);
   };
 
   return (
@@ -83,7 +123,13 @@ export const TasksListPage: React.FC = () => {
       {/* Filter and Search Bar */}
       <Card>
         <CardContent className="p-4">
-          <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setDebouncedSearch(search);
+            }}
+            className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between"
+          >
             <div className="flex-1 relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
@@ -102,14 +148,22 @@ export const TasksListPage: React.FC = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => {
-                    setStatusFilter(e.target.value);
+                    const val = e.target.value;
+                    setStatusFilter(val);
                     setPage(1);
+                    if (val) {
+                      setSearchParams({ status: val });
+                    } else {
+                      setSearchParams({});
+                    }
                   }}
                   className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
                   <option value="">All Statuses</option>
-                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
+                  <option value="active">All Active</option>
                   <option value="dropped">Dropped</option>
                 </select>
               </div>
@@ -130,11 +184,54 @@ export const TasksListPage: React.FC = () => {
                 <option value="critical">Critical</option>
               </select>
 
-              <Button type="submit" variant="outline" size="sm">
-                Apply Search
+              {/* Refresh Button replacing Apply Search button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={loading || refreshing}
+                leftIcon={<RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${refreshing ? 'animate-spin text-indigo-600' : ''}`} />}
+                title="Reload task assignments"
+              >
+                {refreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
             </div>
           </form>
+
+          {(statusFilter || priorityFilter || search) && (
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+              <span className="font-semibold text-[11px] uppercase tracking-wider text-slate-400">Filters:</span>
+              {statusFilter && (
+                <Badge variant="brand" className="text-[10px] uppercase">
+                  Status: {statusFilter.replace('_', ' ')}
+                </Badge>
+              )}
+              {priorityFilter && (
+                <Badge variant="neutral" className="text-[10px] uppercase">
+                  Priority: {priorityFilter}
+                </Badge>
+              )}
+              {search && (
+                <Badge variant="neutral" className="text-[10px]">
+                  Search: "{search}"
+                </Badge>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setStatusFilter('');
+                  setPriorityFilter('');
+                  setSearchParams({});
+                  setPage(1);
+                }}
+                className="ml-auto text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

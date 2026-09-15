@@ -180,6 +180,14 @@ export const AppRoutes: React.FC = () => {
             }
           />
           <Route
+            path="director/team"
+            element={
+              <RoleGuard allowedRoles={['director']}>
+                <DirectorTeamPage />
+              </RoleGuard>
+            }
+          />
+          <Route
             path="director/employees/:id"
             element={
               <RoleGuard allowedRoles={['director']}>

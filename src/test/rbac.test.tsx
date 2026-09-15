@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders } from './test-utils';
 import { RoleGuard } from '../routes/RoleGuard';
+import { ProfilePage } from '../features/profile/pages/ProfilePage';
 import type { CurrentUser } from '../types/user';
 
 const makeUser = (role_name: string, role_id: string): CurrentUser => ({
@@ -222,5 +223,68 @@ describe('RBAC Route Protection (RoleGuard)', () => {
 
     expect(screen.queryByText('Notifications Area')).not.toBeInTheDocument();
     expect(screen.getByText('Admin Dashboard Redirected')).toBeInTheDocument();
+  });
+
+  it('hides Notification Settings tab in ProfilePage for Admin', () => {
+    const user = makeUser('admin', '1');
+
+    renderWithProviders(<ProfilePage />, {
+      preloadedState: {
+        auth: {
+          user,
+          token: 'valid-token',
+          refreshToken: null,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        },
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /Profile Details/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Change Password/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Notification Settings/i })).not.toBeInTheDocument();
+  });
+
+  it('shows Notification Settings tab in ProfilePage for Employee', () => {
+    const user = makeUser('employee', '3');
+
+    renderWithProviders(<ProfilePage />, {
+      preloadedState: {
+        auth: {
+          user,
+          token: 'valid-token',
+          refreshToken: null,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        },
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /Profile Details/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Change Password/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Notification Settings/i })).toBeInTheDocument();
+  });
+
+  it('shows Notification Settings tab in ProfilePage for Director', () => {
+    const user = makeUser('director', '2');
+
+    renderWithProviders(<ProfilePage />, {
+      preloadedState: {
+        auth: {
+          user,
+          token: 'valid-token',
+          refreshToken: null,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        },
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /Profile Details/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Change Password/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Notification Settings/i })).toBeInTheDocument();
   });
 });

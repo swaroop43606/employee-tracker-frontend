@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { triggerNotificationRefresh } from '../utils/notifications';
 import type { NotificationResponse } from '../types/notification';
 
 interface NotificationPopoverProps {
@@ -47,7 +48,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   const [clearing, setClearing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch notifications when opened
+  // Fetch unread notifications when opened
   const fetchNotifications = async () => {
     setLoading(true);
     setError(null);
@@ -55,11 +56,11 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
       const res = await api.getPaginated<NotificationResponse>('/notifications', {
         page: 1,
         page_size: 10,
+        unread_only: true,
       });
       if (res.success && res.data) {
         const items = res.data.items || [];
         setNotifications(items);
-        const unread = items.filter((n) => !n.is_read).length;
         // Also fetch accurate unread count from server
         try {
           const countRes = await api.get<{ unread_count: number }>('/notifications/unread-count');
@@ -67,7 +68,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
             onUnreadCountChange(countRes.data.unread_count);
           }
         } catch {
-          onUnreadCountChange(unread);
+          onUnreadCountChange(items.length);
         }
       }
     } catch (err: any) {
@@ -94,16 +95,15 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Mark single as read and navigate
+  // Mark single as read, remove from unread dropdown, and navigate
   const handleItemClick = async (n: NotificationResponse) => {
     if (!n.is_read) {
       try {
         await api.patch(`/notifications/${n.notification_id}/read`);
         setNotifications((prev) =>
-          prev.map((item) =>
-            item.notification_id === n.notification_id ? { ...item, is_read: true } : item
-          )
+          prev.filter((item) => item.notification_id !== n.notification_id)
         );
+        triggerNotificationRefresh();
         // Refresh unread count
         try {
           const countRes = await api.get<{ unread_count: number }>('/notifications/unread-count');
@@ -111,7 +111,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
             onUnreadCountChange(countRes.data.unread_count);
           }
         } catch {
-          // ignore
+          onUnreadCountChange(Math.max(0, notifications.length - 1));
         }
       } catch {
         // Continue navigation even if read status network request fails
@@ -148,8 +148,9 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
     try {
       const res = await api.patch('/notifications/read-all');
       if (res.success) {
-        setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+        setNotifications([]);
         onUnreadCountChange(0);
+        triggerNotificationRefresh();
       }
     } catch (err: any) {
       setError(err.message || 'Failed to mark all as read.');
@@ -159,8 +160,6 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   };
 
   if (!isOpen) return null;
-
-  const unreadItems = notifications.filter((n) => !n.is_read);
 
   return (
     <div
@@ -173,15 +172,15 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
       <div className="flex items-center justify-between px-4 py-3 bg-[#faf7f5] border-b border-[#efe7e1]">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-stone-900">Notifications</span>
-          {unreadItems.length > 0 && (
+          {notifications.length > 0 && (
             <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-[#ffe1c5] text-[#991b1f] rounded-full border border-[#f5d5b5]">
-              {unreadItems.length} new
+              {notifications.length} new
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {unreadItems.length > 0 && (
+          {notifications.length > 0 && (
             <button
               type="button"
               onClick={handleClearAll}
@@ -216,8 +215,8 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
             <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-[#fff8f3] border border-[#efe7e1] flex items-center justify-center text-[#991b1f]">
               <Bell className="w-5 h-5 opacity-60" />
             </div>
-            <p className="text-xs font-bold text-stone-800">No notifications</p>
-            <p className="text-[11px] text-stone-400 mt-0.5">You're completely caught up!</p>
+            <p className="text-xs font-bold text-stone-800">No new notifications</p>
+            <p className="text-[11px] text-stone-400 mt-0.5">You're all caught up!</p>
           </div>
         ) : (
           notifications.map((item) => (

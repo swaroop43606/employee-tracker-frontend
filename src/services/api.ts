@@ -17,8 +17,8 @@ export const api = {
   patch: <T>(url: string, data?: unknown): Promise<ApiResponse<T>> =>
     axiosInstance.patch<ApiResponse<T>>(url, data).then((r) => r.data),
 
-  delete: <T>(url: string): Promise<ApiResponse<T>> =>
-    axiosInstance.delete<ApiResponse<T>>(url).then((r) => r.data),
+  delete: <T>(url: string, data?: unknown): Promise<ApiResponse<T>> =>
+    axiosInstance.delete<ApiResponse<T>>(url, { data }).then((r) => r.data),
 
   upload: <T>(url: string, formData: FormData): Promise<ApiResponse<T>> =>
     axiosInstance

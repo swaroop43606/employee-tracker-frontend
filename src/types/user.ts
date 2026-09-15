@@ -37,7 +37,6 @@ export interface CurrentUser {
   designation?: string | null;
   profile_photo?: string | null;
   status?: string | null;
-  address?: string | null;
   last_login_at?: string | null;
   created_at?: string | null;
 }
@@ -65,5 +64,6 @@ export interface UserListItem {
   phone?: string | null;
   profile_photo?: string | null;
   manager_name?: string | null;
+  date_of_joining?: string | null;
   created_at: string;
 }

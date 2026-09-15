@@ -100,3 +100,115 @@ export const computeProgressFromStatus = (
   }
   return currentProgress;
 };
+
+export type TaskLifecycleStatus = 'pending' | 'in_progress' | 'completed' | 'dropped' | 'cancelled';
+
+/**
+ * Normalizes any task status string or variant to standard lowercase format.
+ */
+export const normalizeStatusString = (status?: string | null): string => {
+  if (!status) return '';
+  return status.trim().toLowerCase().replace(/[-\s]+/g, '_');
+};
+
+/**
+ * Determines the single canonical lifecycle status for a task assignment.
+ * Considers assignment status, completion percentage, and parent task status.
+ */
+export const getAssignmentLifecycleStatus = (
+  assignment: {
+    status?: string | null;
+    completion_percentage?: number | null;
+    task_status?: string | null;
+  }
+): TaskLifecycleStatus => {
+  const normAssignStatus = normalizeStatusString(assignment.status);
+  const normTaskStatus = normalizeStatusString(assignment.task_status);
+
+  if (normTaskStatus === 'cancelled') {
+    return 'cancelled';
+  }
+  if (normAssignStatus === 'dropped') {
+    return 'dropped';
+  }
+  const progress = Number(assignment.completion_percentage ?? 0);
+  if (normAssignStatus === 'completed' || progress >= 100) {
+    return 'completed';
+  }
+  if (progress > 0 && progress < 100) {
+    return 'in_progress';
+  }
+  return 'pending';
+};
+
+/**
+ * Checks whether a task assignment matches a given status filter.
+ */
+export const matchesStatusFilter = (
+  assignment: {
+    status?: string | null;
+    completion_percentage?: number | null;
+    task_status?: string | null;
+  },
+  filter: string
+): boolean => {
+  const normFilter = normalizeStatusString(filter);
+  if (!normFilter || normFilter === 'all') {
+    // "All" visible tasks excludes dropped and cancelled
+    const lifecycle = getAssignmentLifecycleStatus(assignment);
+    return lifecycle !== 'dropped' && lifecycle !== 'cancelled';
+  }
+
+  if (normFilter === 'active') {
+    const lifecycle = getAssignmentLifecycleStatus(assignment);
+    return lifecycle === 'pending' || lifecycle === 'in_progress';
+  }
+
+  const lifecycle = getAssignmentLifecycleStatus(assignment);
+  return lifecycle === normFilter;
+};
+
+export interface TaskLifecycleMetrics {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  dropped: number;
+  cancelled: number;
+}
+
+/**
+ * Computes centralized, consistent lifecycle metrics from an array of assignments.
+ */
+export const calculateTaskLifecycleMetrics = (
+  assignments: Array<{
+    status?: string | null;
+    completion_percentage?: number | null;
+    task_status?: string | null;
+  }>
+): TaskLifecycleMetrics => {
+  let pending = 0;
+  let inProgress = 0;
+  let completed = 0;
+  let dropped = 0;
+  let cancelled = 0;
+
+  for (const a of assignments) {
+    const lifecycle = getAssignmentLifecycleStatus(a);
+    if (lifecycle === 'pending') pending++;
+    else if (lifecycle === 'in_progress') inProgress++;
+    else if (lifecycle === 'completed') completed++;
+    else if (lifecycle === 'dropped') dropped++;
+    else if (lifecycle === 'cancelled') cancelled++;
+  }
+
+  return {
+    total: pending + inProgress + completed,
+    pending,
+    inProgress,
+    completed,
+    dropped,
+    cancelled,
+  };
+};
+

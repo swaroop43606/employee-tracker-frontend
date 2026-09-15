@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Calendar, ArrowRight } from 'lucide-react';
+import { Calendar, ArrowRight, Clock } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
 import { PageHeader } from '../../../components/PageHeader';
@@ -9,6 +9,7 @@ import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import { Button } from '../../../components/Button';
+import { formatDateTime } from '../../../utils/date';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
 
 export const DailyUpdatesListPage: React.FC = () => {
@@ -172,10 +173,15 @@ export const DailyUpdatesListPage: React.FC = () => {
                     <p className="text-xs text-slate-500 max-w-xl truncate mt-1">
                       {update.summary || 'No summary comments recorded.'}
                     </p>
-                    <div className="flex items-center gap-4 text-[10px] text-slate-400 mt-2">
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mt-2">
                       <span>Total Hours: {update.total_hours} hrs</span>
                       <span>•</span>
                       <span>Tasks: {update.items_count}</span>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-slate-500">
+                        <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                        Last updated: {formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}
+                      </span>
                     </div>
                   </div>
 

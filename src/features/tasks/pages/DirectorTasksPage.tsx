@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import { Search, Plus, ArrowRight, Save, Calendar, CheckSquare, AlertCircle } from 'lucide-react';
 import { api } from '../../../services/api';
 import { PageHeader } from '../../../components/PageHeader';
@@ -11,6 +11,9 @@ import { getDueDateIndicator } from '../../../utils/taskStatus';
 import type { TaskResponse } from '../../../types/task';
 
 export const DirectorTasksPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const urlStatus = searchParams.get('status') || '';
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +26,15 @@ export const DirectorTasksPage: React.FC = () => {
 
   // Filters
   const [searchVal, setSearchVal] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(urlStatus);
   const [priorityFilter, setPriorityFilter] = useState('');
+
+  useEffect(() => {
+    if (urlStatus && urlStatus !== statusFilter) {
+      setStatusFilter(urlStatus);
+      setPage(1);
+    }
+  }, [urlStatus]);
 
   // Task creation form state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -165,6 +175,7 @@ export const DirectorTasksPage: React.FC = () => {
               <option value="">All Statuses</option>
               <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
+              <option value="overdue">Overdue</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>

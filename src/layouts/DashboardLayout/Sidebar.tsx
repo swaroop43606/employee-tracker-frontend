@@ -2,7 +2,6 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  CalendarPlus,
   History,
   CheckSquare,
   ClipboardCheck,
@@ -14,6 +13,7 @@ import {
   Briefcase,
   Layers,
   X,
+  FileUp,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
         return [
           { name: 'Dashboard', href: '/employee/dashboard', icon: LayoutDashboard },
           { name: 'My Tasks', href: '/employee/tasks', icon: CheckSquare },
-          { name: 'Daily Tracker', href: '/employee/daily-update', icon: CalendarPlus },
+          { name: 'Upload Daily Tracker', href: '/employee/daily-update', icon: FileUp },
           { name: 'Feedback & Reviews', href: '/employee/daily-updates', icon: History },
           { name: 'Notifications', href: '/notifications', icon: Bell },
         ];

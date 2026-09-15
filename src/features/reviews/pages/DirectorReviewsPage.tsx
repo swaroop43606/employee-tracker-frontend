@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { Calendar, ArrowRight } from 'lucide-react';
+import { NavLink, useSearchParams } from 'react-router-dom';
+import { Calendar, ArrowRight, Clock, Search } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
 import { PageHeader } from '../../../components/PageHeader';
@@ -9,11 +9,15 @@ import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import { Button } from '../../../components/Button';
+import { formatDateTime } from '../../../utils/date';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
 import type { UserListItem } from '../../../types/user';
 
 export const DirectorReviewsPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const urlStatus = searchParams.get('status') || '';
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,10 +28,27 @@ export const DirectorReviewsPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   // Filters
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(urlStatus);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  // 350ms debounce for search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchValue(searchInputValue);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInputValue]);
+
+  useEffect(() => {
+    if (urlStatus && urlStatus !== statusFilter) {
+      setStatusFilter(urlStatus);
+      setPage(1);
+    }
+  }, [urlStatus]);
 
   const fetchFiltersData = async () => {
     try {
@@ -51,13 +72,18 @@ export const DirectorReviewsPage: React.FC = () => {
         status_filter: statusFilter || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
+        search: debouncedSearchValue.trim() || undefined,
         page,
         page_size: 10,
       });
 
       if (res.success && res.data) {
-        // Exclude own updates from review queue
-        const subordinateLogs = (res.data.items || []).filter(u => u.employee_id !== user?.user_id);
+        // Exclude own updates from review queue, and exclude unsubmitted drafts unless explicitly filtered
+        const subordinateLogs = (res.data.items || []).filter(u => {
+          if (u.employee_id === user?.user_id) return false;
+          if (!statusFilter && u.overall_status === 'draft') return false;
+          return true;
+        });
         setUpdates(subordinateLogs);
         setTotalPages(res.data.total_pages || 1);
       }
@@ -74,7 +100,7 @@ export const DirectorReviewsPage: React.FC = () => {
 
   useEffect(() => {
     fetchReviewsQueue();
-  }, [user, selectedEmployee, statusFilter, dateFrom, dateTo, page]);
+  }, [user, selectedEmployee, statusFilter, dateFrom, dateTo, debouncedSearchValue, page]);
 
   return (
     <div className="space-y-6">
@@ -86,90 +112,99 @@ export const DirectorReviewsPage: React.FC = () => {
 
       {/* Filters Bar Card */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-end justify-between">
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              {/* Employee filter */}
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-slate-400 mb-1">TEAM MEMBER</span>
-                <select
-                  value={selectedEmployee}
-                  onChange={(e) => {
-                    setSelectedEmployee(e.target.value);
-                    setPage(1);
-                  }}
-                  className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none"
-                >
-                  <option value="">All Members</option>
-                  {team.map(emp => (
-                    <option key={emp.user_id} value={emp.user_id}>
-                      {emp.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Status filter */}
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-slate-400 mb-1">STATUS</span>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 focus:outline-none"
-                >
-                  <option value="">All Updates</option>
-                  <option value="submitted">Submitted (Pending)</option>
-                  <option value="reviewed">Reviewed (Actioned)</option>
-                  <option value="draft">Drafts</option>
-                </select>
-              </div>
-
-              {/* Date From */}
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-slate-400 mb-1">FROM DATE</span>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value);
-                    setPage(1);
-                  }}
-                  className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none"
-                />
-              </div>
-
-              {/* Date To */}
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-slate-400 mb-1">TO DATE</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value);
-                    setPage(1);
-                  }}
-                  className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none"
-                />
-              </div>
+        <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search employees or updates..."
+                value={searchInputValue}
+                onChange={(e) => {
+                  setSearchInputValue(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelectedEmployee('');
-                setStatusFilter('');
-                setDateFrom('');
-                setDateTo('');
+            {/* Employee filter */}
+            <select
+              aria-label="Filter by team member"
+              value={selectedEmployee}
+              onChange={(e) => {
+                setSelectedEmployee(e.target.value);
                 setPage(1);
               }}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
-              Reset Filters
-            </Button>
+              <option value="">All Members</option>
+              {team.map(emp => (
+                <option key={emp.user_id} value={emp.user_id}>
+                  {emp.full_name}
+                </option>
+              ))}
+            </select>
+
+            {/* Status filter */}
+            <select
+              aria-label="Filter by update status"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="">All Updates</option>
+              <option value="submitted">Submitted (Pending)</option>
+              <option value="reviewed">Reviewed (Actioned)</option>
+              <option value="draft">Drafts</option>
+            </select>
+
+            {/* From Date */}
+            <input
+              type="date"
+              aria-label="From Date"
+              title="From Date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-600"
+            />
+
+            {/* To Date */}
+            <input
+              type="date"
+              aria-label="To Date"
+              title="To Date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-600"
+            />
           </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchInputValue('');
+              setDebouncedSearchValue('');
+              setSelectedEmployee('');
+              setStatusFilter('');
+              setDateFrom('');
+              setDateTo('');
+              setPage(1);
+            }}
+          >
+            Reset Filters
+          </Button>
         </CardContent>
       </Card>
 
@@ -180,7 +215,9 @@ export const DirectorReviewsPage: React.FC = () => {
         <ErrorState message={error} onRetry={fetchReviewsQueue} />
       ) : updates.length === 0 ? (
         <Card className="p-8 text-center text-slate-400 text-xs">
-          No daily update submissions matching your selection criteria.
+          {debouncedSearchValue || selectedEmployee || statusFilter || dateFrom || dateTo
+            ? 'No daily updates match your search or filters.'
+            : 'No daily update submissions matching your selection criteria.'}
         </Card>
       ) : (
         <div className="space-y-4">
@@ -226,10 +263,15 @@ export const DirectorReviewsPage: React.FC = () => {
                     <p className="text-xs text-slate-500 line-clamp-1 max-w-xl">
                       {up.summary || 'No summary comments recorded.'}
                     </p>
-                    <div className="flex items-center gap-4 text-[10px] text-slate-400 pt-1 font-semibold">
-                      <span>Total Hours: {up.total_hours} hrs</span>
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 pt-1 font-medium">
+                      <span className="font-semibold">Total Hours: {up.total_hours} hrs</span>
                       <span>•</span>
-                      <span>Tasks: {up.items_count}</span>
+                      <span className="font-semibold">Tasks: {up.items_count}</span>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-slate-500 font-normal">
+                        <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                        Last updated by employee: {formatDateTime(up.employee_updated_at || up.submitted_at || up.created_at)}
+                      </span>
                     </div>
                   </div>
 

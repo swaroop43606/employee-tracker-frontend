@@ -51,6 +51,7 @@ export interface DailyUpdateResponse {
   items: DailyUpdateItemResponse[];
   created_at: string;
   updated_at: string;
+  employee_updated_at?: string | null;
 }
 
 export interface DailyUpdateListItem {
@@ -68,4 +69,5 @@ export interface DailyUpdateListItem {
   total_hours: number;
   submitted_at: string | null;
   created_at: string;
+  employee_updated_at?: string | null;
 }

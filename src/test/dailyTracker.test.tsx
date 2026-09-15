@@ -1,11 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { getLocalDate, formatDate, formatHours } from '../utils/date';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { screen } from '@testing-library/react';
+import { Route, Routes } from 'react-router-dom';
+import { getLocalDate, formatDate, formatHours, formatDateTime } from '../utils/date';
 import {
   computeStatusFromProgress,
   computeProgressFromStatus,
   getDueDateIndicator,
 } from '../utils/taskStatus';
-import type { DailyUpdateCreatePayload } from '../types/dailyUpdate';
+import { renderWithProviders } from './test-utils';
+import { api } from '../services/api';
+import { DailyUpdatesListPage } from '../features/dailyUpdates/pages/DailyUpdatesListPage';
+import { DirectorReviewsPage } from '../features/reviews/pages/DirectorReviewsPage';
+import { DirectorReviewDetailPage } from '../features/reviews/pages/DirectorReviewDetailPage';
+import type { DailyUpdateCreatePayload, DailyUpdateListItem, DailyUpdateResponse } from '../types/dailyUpdate';
 
 describe('Daily Update Workflow & Utilities', () => {
   describe('Local Date Utilities', () => {
@@ -104,4 +111,221 @@ describe('Daily Update Workflow & Utilities', () => {
       expect(payload.items).toHaveLength(1);
     });
   });
+
+  describe('Employee Last Updated Timestamp & Fallback Order', () => {
+    it('formats ISO timestamps with localized month, day, year, and time', () => {
+      const iso = '2026-09-09T11:38:00Z';
+      const formatted = formatDateTime(iso);
+      expect(formatted).toContain('2026');
+      expect(formatted).toContain('Sep');
+      expect(formatted).toContain('9');
+      // Graceful fallback for invalid or null dates
+      expect(formatDateTime(null)).toBe('N/A');
+      expect(formatDateTime(undefined)).toBe('N/A');
+      expect(formatDateTime('invalid-date')).toBe('N/A');
+    });
+
+    it('implements strict employee_updated_at -> submitted_at -> created_at fallback resolution', () => {
+      const resolveTimestamp = (item: {
+        employee_updated_at?: string | null;
+        submitted_at?: string | null;
+        created_at: string;
+      }) => {
+        return item.employee_updated_at || item.submitted_at || item.created_at;
+      };
+
+      // 1. When employee_updated_at is present, it takes precedence
+      const itemWithAll = {
+        employee_updated_at: '2026-09-09T11:38:00Z',
+        submitted_at: '2026-09-09T10:15:00Z',
+        created_at: '2026-09-09T09:00:00Z',
+      };
+      expect(resolveTimestamp(itemWithAll)).toBe('2026-09-09T11:38:00Z');
+
+      // 2. When employee_updated_at is null/undefined, falls back to submitted_at
+      const itemNoEmployeeUpdated = {
+        employee_updated_at: null,
+        submitted_at: '2026-09-09T10:15:00Z',
+        created_at: '2026-09-09T09:00:00Z',
+      };
+      expect(resolveTimestamp(itemNoEmployeeUpdated)).toBe('2026-09-09T10:15:00Z');
+
+      // 3. When both employee_updated_at and submitted_at are null/undefined, falls back to created_at
+      const itemOnlyCreated = {
+        employee_updated_at: null,
+        submitted_at: null,
+        created_at: '2026-09-09T09:00:00Z',
+      };
+      expect(resolveTimestamp(itemOnlyCreated)).toBe('2026-09-09T09:00:00Z');
+    });
+  });
+
+  describe('Daily Update Last Updated UI Displays', () => {
+    const mockEmployee = {
+      user_id: 'emp-101',
+      full_name: 'John Doe',
+      email: 'john.doe@example.com',
+      employee_code: 'EMP001',
+      role_id: 'role-emp',
+      role_name: 'employee',
+      department_id: 'dept-1',
+    };
+
+    const mockDirector = {
+      user_id: 'dir-101',
+      full_name: 'Sarah Director',
+      email: 'sarah.director@example.com',
+      employee_code: 'DIR001',
+      role_id: 'role-dir',
+      role_name: 'director',
+      department_id: 'dept-1',
+    };
+
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('renders "Last updated: <timestamp>" on Employee Update History cards', async () => {
+      const mockUpdateItem: DailyUpdateListItem = {
+        update_id: 'up-101',
+        employee_id: 'emp-101',
+        employee_name: 'John Doe',
+        employee_code: 'EMP001',
+        update_date: '2026-09-09',
+        summary: 'Completed daily goals',
+        overall_status: 'submitted',
+        items_count: 2,
+        total_hours: 7.0,
+        submitted_at: '2026-09-09T10:15:00Z',
+        created_at: '2026-09-09T09:00:00Z',
+        employee_updated_at: '2026-09-09T11:38:00Z',
+      };
+
+      vi.spyOn(api, 'getPaginated').mockResolvedValue({
+        success: true,
+        data: {
+          items: [mockUpdateItem],
+          total: 1,
+          page: 1,
+          page_size: 10,
+          total_pages: 1,
+        },
+      });
+
+      renderWithProviders(<DailyUpdatesListPage />, {
+        preloadedState: {
+          auth: {
+            user: mockEmployee as any,
+            token: 'emp-token',
+            refreshToken: null,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          },
+        },
+      });
+
+      expect(await screen.findByText(/Last updated: Sep 9, 2026/i)).toBeInTheDocument();
+    });
+
+    it('renders "Last updated by employee: <timestamp>" on Director Review Queue cards', async () => {
+      const mockQueueItem: DailyUpdateListItem = {
+        update_id: 'up-202',
+        employee_id: 'emp-101',
+        employee_name: 'John Doe',
+        employee_code: 'EMP001',
+        update_date: '2026-09-09',
+        summary: 'Backend refactoring',
+        overall_status: 'submitted',
+        items_count: 3,
+        total_hours: 8.0,
+        submitted_at: '2026-09-09T10:15:00Z',
+        created_at: '2026-09-09T09:00:00Z',
+        employee_updated_at: '2026-09-09T11:38:00Z',
+      };
+
+      vi.spyOn(api, 'getPaginated').mockImplementation(((url: string) => {
+        if (url === '/users') {
+          return Promise.resolve({
+            success: true,
+            data: { items: [mockEmployee], total: 1, page: 1, page_size: 100, total_pages: 1 },
+          });
+        }
+        return Promise.resolve({
+          success: true,
+          data: { items: [mockQueueItem], total: 1, page: 1, page_size: 10, total_pages: 1 },
+        });
+      }) as any);
+
+      renderWithProviders(<DirectorReviewsPage />, {
+        preloadedState: {
+          auth: {
+            user: mockDirector as any,
+            token: 'dir-token',
+            refreshToken: null,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          },
+        },
+      });
+
+      expect(await screen.findByText(/Last updated by employee:/i)).toBeInTheDocument();
+    });
+
+    it('renders separate metadata for Update Date, Submitted, and Last Updated by Employee in Director Review Details', async () => {
+      const mockDetail: DailyUpdateResponse = {
+        update_id: 'up-303',
+        employee_id: 'emp-101',
+        employee_name: 'John Doe',
+        employee_code: 'EMP001',
+        update_date: '2026-09-09',
+        summary: 'Reviewable daily work',
+        completed_work: 'Completed phase 6 backend tasks',
+        next_work_plan: 'Phase 7 frontend tests',
+        blockers: null,
+        overall_status: 'submitted',
+        submitted_at: '2026-09-09T10:15:00Z',
+        reviewed_at: null,
+        total_hours: 8.0,
+        items: [],
+        created_at: '2026-09-09T09:00:00Z',
+        updated_at: '2026-09-09T11:38:00Z',
+        employee_updated_at: '2026-09-09T11:38:00Z',
+      };
+
+      vi.spyOn(api, 'get').mockImplementation(((url: string) => {
+        if (url === '/daily-updates/up-303') {
+          return Promise.resolve({ success: true, data: mockDetail });
+        }
+        return Promise.resolve({ success: true, data: [] });
+      }) as any);
+
+      renderWithProviders(
+        <Routes>
+          <Route path="/director/daily-updates/:id" element={<DirectorReviewDetailPage />} />
+        </Routes>,
+        {
+          route: '/director/daily-updates/up-303',
+          preloadedState: {
+            auth: {
+              user: mockDirector as any,
+              token: 'dir-token',
+              refreshToken: null,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            },
+          },
+        }
+      );
+
+      // Verify Submission Details card and distinct metadata fields exist
+      expect(await screen.findByText('Submission Details')).toBeInTheDocument();
+      expect(screen.getAllByText(/Last Updated by Employee/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Update Date/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Submitted/i).length).toBeGreaterThan(0);
+    });
+  });
 });
+

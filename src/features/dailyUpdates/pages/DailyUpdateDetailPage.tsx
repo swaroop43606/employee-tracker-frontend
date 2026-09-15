@@ -8,6 +8,7 @@ import {
   Trash2,
   Edit2,
   FileText,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
@@ -17,6 +18,7 @@ import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
+import { formatDateTime } from '../../../utils/date';
 import type { DailyUpdateResponse } from '../../../types/dailyUpdate';
 import type { ReviewResponse } from '../../../types/review';
 import type { CommentResponse } from '../../../types/comment';
@@ -256,6 +258,21 @@ export const DailyUpdateDetailPage: React.FC = () => {
         badgeText="Log Details"
       />
 
+      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 bg-slate-50/80 border border-slate-200/60 rounded-xl px-4 py-2.5">
+        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+          <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          Last updated: <span className="font-semibold text-slate-900">{formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}</span>
+        </span>
+        {update.submitted_at && (
+          <>
+            <span className="text-slate-300">•</span>
+            <span className="text-slate-500">
+              Submitted: <span className="font-medium text-slate-700">{formatDateTime(update.submitted_at)}</span>
+            </span>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Columns: Tasks worked on */}
         <div className="lg:col-span-2 space-y-6">
@@ -428,6 +445,16 @@ export const DailyUpdateDetailPage: React.FC = () => {
                 >
                   {update.overall_status}
                 </Badge>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <span className="text-slate-500 flex items-center gap-1.5 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  Last updated
+                </span>
+                <span className="font-semibold text-slate-800">
+                  {formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}
+                </span>
               </div>
 
               {reviews.length === 0 ? (
