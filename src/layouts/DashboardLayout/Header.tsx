@@ -202,6 +202,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                   <UserIcon className="w-4 h-4 text-stone-400" />
                   My Profile
                 </NavLink>
+                {!isAdmin && (
                 <NavLink
                   to="/notifications"
                   onClick={() => setDropdownOpen(false)}
@@ -210,6 +211,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                   <Bell className="w-4 h-4 text-stone-400" />
                   Notification Preferences
                 </NavLink>
+                )}
               </div>
 
               <div className="pt-1 border-t border-[#f5ede7]">

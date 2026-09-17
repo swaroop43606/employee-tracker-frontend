@@ -9,7 +9,7 @@ import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import { Button } from '../../../components/Button';
-import { formatDateTime } from '../../../utils/date';
+import { formatDate, formatDateTime, getLocalDate } from '../../../utils/date';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
 
 export const DailyUpdatesListPage: React.FC = () => {
@@ -73,6 +73,7 @@ export const DailyUpdatesListPage: React.FC = () => {
                 <span className="text-[10px] font-bold text-slate-400 mb-1">DATE FROM</span>
                 <input
                   type="date"
+                  max={getLocalDate()}
                   value={dateFrom}
                   onChange={(e) => {
                     setDateFrom(e.target.value);
@@ -87,6 +88,7 @@ export const DailyUpdatesListPage: React.FC = () => {
                 <span className="text-[10px] font-bold text-slate-400 mb-1">DATE TO</span>
                 <input
                   type="date"
+                  max={getLocalDate()}
                   value={dateTo}
                   onChange={(e) => {
                     setDateTo(e.target.value);
@@ -150,7 +152,8 @@ export const DailyUpdatesListPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-indigo-600" />
                       <h4 className="text-sm font-bold text-slate-800">
-                        {new Date(update.update_date).toLocaleDateString('en-US', {
+                        <span className="text-slate-500 font-semibold text-xs mr-1">Work Date:</span>
+                        {formatDate(update.work_date || update.update_date, {
                           weekday: 'short',
                           month: 'short',
                           day: 'numeric',
@@ -173,14 +176,22 @@ export const DailyUpdatesListPage: React.FC = () => {
                     <p className="text-xs text-slate-500 max-w-xl truncate mt-1">
                       {update.summary || 'No summary comments recorded.'}
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mt-2">
-                      <span>Total Hours: {update.total_hours} hrs</span>
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-500 mt-2 font-medium">
+                      <span><strong className="font-semibold text-slate-700">Total Hours:</strong> {update.total_hours} hrs</span>
                       <span>•</span>
-                      <span>Tasks: {update.items_count}</span>
+                      <span><strong className="font-semibold text-slate-700">Tasks:</strong> {update.items_count}</span>
+                      {update.submitted_at && (
+                        <>
+                          <span>•</span>
+                          <span>
+                            <strong className="font-semibold text-slate-700">Submitted:</strong> {formatDateTime(update.submitted_at)}
+                          </span>
+                        </>
+                      )}
                       <span>•</span>
-                      <span className="inline-flex items-center gap-1 text-slate-500">
+                      <span className="inline-flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                        Last updated: {formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}
+                        <strong className="font-semibold text-slate-700">Last updated by employee:</strong> {formatDateTime(update.employee_updated_at || update.created_at)}
                       </span>
                     </div>
                   </div>

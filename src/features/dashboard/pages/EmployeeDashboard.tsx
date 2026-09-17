@@ -435,7 +435,7 @@ export const EmployeeDashboard: React.FC = () => {
                 <div className="divide-y divide-slate-100">
                   {recentUpdates.map((update) => {
                     const isDraft = update.overall_status === 'draft';
-                    const isToday = update.update_date === getLocalDate();
+                    const isToday = (update.work_date || update.update_date) === getLocalDate();
                     const targetUrl = isDraft && isToday
                       ? '/employee/daily-update'
                       : `/employee/daily-updates/${update.update_id}`;
@@ -450,7 +450,7 @@ export const EmployeeDashboard: React.FC = () => {
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="text-xs font-bold text-slate-800">
-                                {formatDate(update.update_date)}
+                                {formatDate(update.work_date || update.update_date)}
                               </p>
                               <Badge
                                 variant={

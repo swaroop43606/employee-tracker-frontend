@@ -9,7 +9,7 @@ import { Badge } from '../../../components/Badge';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
 import { Button } from '../../../components/Button';
-import { formatDateTime } from '../../../utils/date';
+import { formatDate, formatDateTime } from '../../../utils/date';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
 import type { UserListItem } from '../../../types/user';
 
@@ -237,7 +237,8 @@ export const DirectorReviewsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-indigo-600" />
                       <h4 className="text-sm font-bold text-slate-800">
-                        {new Date(up.update_date).toLocaleDateString('en-US', {
+                        <span className="text-slate-500 font-semibold text-xs mr-1">Work Date:</span>
+                        {formatDate(up.work_date || up.update_date, {
                           weekday: 'short',
                           month: 'short',
                           day: 'numeric',
@@ -263,14 +264,22 @@ export const DirectorReviewsPage: React.FC = () => {
                     <p className="text-xs text-slate-500 line-clamp-1 max-w-xl">
                       {up.summary || 'No summary comments recorded.'}
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 pt-1 font-medium">
-                      <span className="font-semibold">Total Hours: {up.total_hours} hrs</span>
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-500 pt-1 font-medium">
+                      <span><strong className="font-semibold text-slate-700">Total Hours:</strong> {up.total_hours} hrs</span>
                       <span>•</span>
-                      <span className="font-semibold">Tasks: {up.items_count}</span>
+                      <span><strong className="font-semibold text-slate-700">Tasks:</strong> {up.items_count}</span>
+                      {up.submitted_at && (
+                        <>
+                          <span>•</span>
+                          <span>
+                            <strong className="font-semibold text-slate-700">Submitted:</strong> {formatDateTime(up.submitted_at)}
+                          </span>
+                        </>
+                      )}
                       <span>•</span>
-                      <span className="inline-flex items-center gap-1 text-slate-500 font-normal">
+                      <span className="inline-flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                        Last updated by employee: {formatDateTime(up.employee_updated_at || up.submitted_at || up.created_at)}
+                        <strong className="font-semibold text-slate-700">Last updated by employee:</strong> {formatDateTime(up.employee_updated_at || up.created_at)}
                       </span>
                     </div>
                   </div>

@@ -63,15 +63,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setErrors({});
-    if (error) {
-      dispatch(clearAuthError());
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fff8f3] via-[#faf7f5] to-[#ffeadb] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background Decorative Soft Warm Blobs */}
@@ -196,38 +187,6 @@ export const Login: React.FC = () => {
               Sign In
             </Button>
           </form>
-
-          {/* Quick Demo Credentials Buttons (Development Only) */}
-          {import.meta.env.DEV && (
-            <div className="mt-6 pt-6 border-t border-[#f5ede7]">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400 text-center mb-3">
-                Quick Demo Accounts
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('john.doe@example.com', 'Employee@123')}
-                  className="py-1.5 px-2 text-[11px] font-semibold text-stone-700 bg-[#fff8f3] hover:bg-[#ffeadb] border border-[#efe7e1] rounded-lg transition-colors text-center truncate"
-                >
-                  Employee
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('director@example.com', 'Director@123')}
-                  className="py-1.5 px-2 text-[11px] font-semibold text-stone-700 bg-[#fff8f3] hover:bg-[#ffeadb] border border-[#efe7e1] rounded-lg transition-colors text-center truncate"
-                >
-                  Director
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('admin@example.com', 'Admin@123')}
-                  className="py-1.5 px-2 text-[11px] font-semibold text-stone-700 bg-[#fff8f3] hover:bg-[#ffeadb] border border-[#efe7e1] rounded-lg transition-colors text-center truncate"
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

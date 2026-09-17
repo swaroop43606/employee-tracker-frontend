@@ -9,6 +9,7 @@ import {
   Edit2,
   FileText,
   Clock,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../services/api';
@@ -18,7 +19,7 @@ import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
-import { formatDateTime } from '../../../utils/date';
+import { formatDate, formatDateTime } from '../../../utils/date';
 import type { DailyUpdateResponse } from '../../../types/dailyUpdate';
 import type { ReviewResponse } from '../../../types/review';
 import type { CommentResponse } from '../../../types/comment';
@@ -248,7 +249,7 @@ export const DailyUpdateDetailPage: React.FC = () => {
       </NavLink>
 
       <PageHeader
-        title={`Daily Update Log: ${new Date(update.update_date).toLocaleDateString('en-US', {
+        title={`Daily Update Log: ${formatDate(update.work_date || update.update_date, {
           weekday: 'long',
           month: 'long',
           day: 'numeric',
@@ -260,14 +261,19 @@ export const DailyUpdateDetailPage: React.FC = () => {
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 bg-slate-50/80 border border-slate-200/60 rounded-xl px-4 py-2.5">
         <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          Work Date: <span className="font-semibold text-slate-900">{formatDate(update.work_date || update.update_date)}</span>
+        </span>
+        <span className="text-slate-300">•</span>
+        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
           <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          Last updated: <span className="font-semibold text-slate-900">{formatDateTime(update.employee_updated_at || update.submitted_at || update.created_at)}</span>
+          Last updated by employee: <span className="font-semibold text-slate-900">{formatDateTime(update.employee_updated_at || update.created_at)}</span>
         </span>
         {update.submitted_at && (
           <>
             <span className="text-slate-300">•</span>
-            <span className="text-slate-500">
-              Submitted: <span className="font-medium text-slate-700">{formatDateTime(update.submitted_at)}</span>
+            <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+              Submitted: <span className="font-semibold text-slate-900">{formatDateTime(update.submitted_at)}</span>
             </span>
           </>
         )}
@@ -320,9 +326,16 @@ export const DailyUpdateDetailPage: React.FC = () => {
                 <div key={item.item_id} className="p-5 space-y-3">
                   <div className="flex justify-between items-start gap-4">
                     <div>
-                      <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                        {item.task_code}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                          {item.task_code}
+                        </span>
+                        {item.task_due_date && (
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            Task Due Date: <strong className="text-slate-700">{formatDate(item.task_due_date)}</strong>
+                          </span>
+                        )}
+                      </div>
                       <h4 className="text-sm font-bold text-slate-800 mt-1">
                         {item.task_title}
                       </h4>

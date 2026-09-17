@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, useSearchParams } from 'react-router-dom';
-import { Search, Plus, ArrowRight, Save, Calendar, CheckSquare, AlertCircle } from 'lucide-react';
+import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Search,
+  Plus,
+  ArrowRight,
+  Save,
+  Calendar,
+  CheckSquare,
+  AlertCircle,
+  MoreVertical,
+  Edit,
+  Archive,
+  X,
+} from 'lucide-react';
 import { api } from '../../../services/api';
 import { PageHeader } from '../../../components/PageHeader';
 import { Card, CardContent, CardHeader } from '../../../components/Card';
@@ -11,6 +23,7 @@ import { getDueDateIndicator } from '../../../utils/taskStatus';
 import type { TaskResponse } from '../../../types/task';
 
 export const DirectorTasksPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const urlStatus = searchParams.get('status') || '';
 
@@ -23,6 +36,12 @@ export const DirectorTasksPage: React.FC = () => {
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // More Actions menu and Archive modal state
+  const [activeMenuTaskId, setActiveMenuTaskId] = useState<string | null>(null);
+  const [archiveTargetTask, setArchiveTargetTask] = useState<TaskResponse | null>(null);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   // Filters
   const [searchVal, setSearchVal] = useState('');
@@ -70,6 +89,43 @@ export const DirectorTasksPage: React.FC = () => {
   useEffect(() => {
     fetchTasks();
   }, [page, statusFilter, priorityFilter, searchVal]);
+
+  useEffect(() => {
+    const handleGlobalClick = () => setActiveMenuTaskId(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveMenuTaskId(null);
+        if (!archiving) setArchiveTargetTask(null);
+      }
+    };
+    window.addEventListener('click', handleGlobalClick);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [archiving]);
+
+  const handleArchiveTask = async () => {
+    if (!archiveTargetTask) return;
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const res = await api.post(`/tasks/${archiveTargetTask.task_id}/archive`);
+      if (res.success) {
+        setSuccess('Task archived successfully');
+        setArchiveTargetTask(null);
+        await fetchTasks();
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setArchiveError(res.message || 'Failed to archive task.');
+      }
+    } catch (err: any) {
+      setArchiveError(err.message || 'Failed to archive task.');
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +221,7 @@ export const DirectorTasksPage: React.FC = () => {
 
             {/* Status Filter */}
             <select
+              data-testid="status-filter-select"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -178,6 +235,7 @@ export const DirectorTasksPage: React.FC = () => {
               <option value="overdue">Overdue</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="archived">Archived</option>
             </select>
 
             {/* Priority Filter */}
@@ -335,7 +393,7 @@ export const DirectorTasksPage: React.FC = () => {
                         variant={
                           task.status === 'completed'
                             ? 'success'
-                            : task.status === 'cancelled'
+                            : task.status === 'cancelled' || task.status === 'archived'
                             ? 'neutral'
                             : 'info'
                         }
@@ -368,11 +426,77 @@ export const DirectorTasksPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <NavLink to={`/director/tasks/${task.task_id}`}>
-                    <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                      View & Assign
-                    </Button>
-                  </NavLink>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <NavLink to={`/director/tasks/${task.task_id}`}>
+                      <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                        View & Assign
+                      </Button>
+                    </NavLink>
+                    <div className="relative inline-flex items-center">
+                      <button
+                        id={`task-actions-btn-${task.task_id}`}
+                        type="button"
+                        data-testid={`task-actions-btn-${task.task_id}`}
+                        aria-label={`More actions for ${task.title}`}
+                        aria-haspopup="true"
+                        aria-expanded={activeMenuTaskId === task.task_id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuTaskId(activeMenuTaskId === task.task_id ? null : task.task_id);
+                        }}
+                        className={`p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500/20 ${
+                          activeMenuTaskId === task.task_id ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-white'
+                        }`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {activeMenuTaskId === task.task_id && (
+                        <div
+                          data-testid={`task-menu-${task.task_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100"
+                        >
+                          <button
+                            type="button"
+                            data-testid={`task-edit-btn-${task.task_id}`}
+                            onClick={() => {
+                              setActiveMenuTaskId(null);
+                              navigate(`/director/tasks/${task.task_id}?edit=true`);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-slate-500" />
+                            Edit Task
+                          </button>
+                          {task.status === 'archived' ? (
+                            <button
+                              type="button"
+                              disabled
+                              title="Already archived"
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-400 cursor-not-allowed text-left opacity-60"
+                            >
+                              <Archive className="w-3.5 h-3.5 text-slate-400" />
+                              Archive Task
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              data-testid={`task-archive-btn-${task.task_id}`}
+                              onClick={() => {
+                                setActiveMenuTaskId(null);
+                                setArchiveTargetTask(task);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors text-left"
+                            >
+                              <Archive className="w-3.5 h-3.5 text-amber-600" />
+                              Archive Task
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -402,6 +526,95 @@ export const DirectorTasksPage: React.FC = () => {
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Archive Task Confirmation Modal */}
+      {archiveTargetTask && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => {
+            if (!archiving) setArchiveTargetTask(null);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="archive-modal-title"
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-amber-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700">
+                  <Archive className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="archive-modal-title" className="text-sm font-bold text-slate-900">
+                    Archive Task?
+                  </h3>
+                  <p className="text-[11px] text-amber-700 font-medium">{archiveTargetTask.task_code}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={archiving}
+                onClick={() => setArchiveTargetTask(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
+                <h4 className="text-sm font-bold text-slate-900 leading-snug">{archiveTargetTask.title}</h4>
+                <p className="text-xs text-slate-500 font-medium">
+                  {archiveTargetTask.description || 'No description provided.'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  This task will no longer appear in active task lists or be available for new assignments. Existing assignments, daily updates, reviews, comments, attachments, task history, and audit records will be preserved.
+                </p>
+              </div>
+
+              {archiveError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs font-semibold text-rose-700 leading-relaxed">{archiveError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={archiving}
+                  onClick={() => setArchiveTargetTask(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  isLoading={archiving}
+                  disabled={archiving}
+                  onClick={handleArchiveTask}
+                  className="bg-amber-600 hover:bg-amber-700 text-white shadow-xs focus:ring-amber-500"
+                  leftIcon={<Archive className="w-4 h-4" />}
+                >
+                  Archive Task
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

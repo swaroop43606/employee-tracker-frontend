@@ -100,9 +100,24 @@ axiosInstance.interceptors.response.use(
 
     // Extract detail or errors from standard FastAPI error response
     if (error.response?.data?.detail) {
-      error.message = typeof error.response.data.detail === 'string'
-        ? error.response.data.detail
-        : JSON.stringify(error.response.data.detail);
+      if (typeof error.response.data.detail === 'string') {
+        error.message = error.response.data.detail;
+      } else if (Array.isArray(error.response.data.detail)) {
+        // FastAPI / Pydantic validation error array: [{ loc, msg, type }, ...]
+        const msgs = error.response.data.detail
+          .map((item: any) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item.msg === 'string') {
+              const field = Array.isArray(item.loc) && item.loc.length > 0 ? item.loc[item.loc.length - 1] : null;
+              return field && field !== 'body' ? `${field}: ${item.msg}` : item.msg;
+            }
+            return JSON.stringify(item);
+          })
+          .filter(Boolean);
+        error.message = msgs.join('; ') || 'Validation error occurred.';
+      } else {
+        error.message = JSON.stringify(error.response.data.detail);
+      }
     } else if (error.response?.data?.message) {
       error.message = error.response.data.message;
     }

@@ -21,7 +21,7 @@ import { ErrorState } from '../../../components/Feedback';
 import type { TaskAssignmentResponse } from '../../../types/task';
 import type { DailyUpdateResponse, DailyUpdateItemCreate, DailyUpdateItemStatus } from '../../../types/dailyUpdate';
 import type { AttachmentResponse } from '../../../types/attachment';
-import { getLocalDate } from '../../../utils/date';
+import { getLocalDate, formatDate } from '../../../utils/date';
 import { triggerNotificationRefresh } from '../../../utils/notifications';
 import { getErrorMessage } from '../../../utils/errorHandling';
 
@@ -54,12 +54,13 @@ export const DailyTrackerPage: React.FC = () => {
   const [nextWorkPlan, setNextWorkPlan] = useState('');
   const [blockers, setBlockers] = useState('');
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
-  const [itemForms, setItemForms] = useState<Record<string, {
+  interface ItemFormState {
     work_description: string;
-    hours_spent: number;
-    progress_percentage: number;
+    hours_spent: string;
+    progress_percentage: string;
     status: DailyUpdateItemStatus;
-  }>>({});
+  }
+  const [itemForms, setItemForms] = useState<Record<string, ItemFormState>>({});
 
   // File Upload State
   const [uploading, setUploading] = useState(false);
@@ -78,12 +79,12 @@ export const DailyTrackerPage: React.FC = () => {
       setAssignments(activeItems);
 
       // Initialize forms for all active assignments
-      const initialForms: typeof itemForms = {};
+      const initialForms: Record<string, ItemFormState> = {};
       activeItems.forEach(item => {
         initialForms[item.assignment_id] = {
           work_description: '',
-          hours_spent: 0,
-          progress_percentage: item.completion_percentage || 0,
+          hours_spent: '0',
+          progress_percentage: String(item.completion_percentage ?? 0),
           status: 'in_progress',
         };
       });
@@ -109,8 +110,8 @@ export const DailyTrackerPage: React.FC = () => {
           update.items.forEach(item => {
             updatedForms[item.assignment_id] = {
               work_description: item.work_description || '',
-              hours_spent: item.hours_spent,
-              progress_percentage: item.progress_percentage,
+              hours_spent: String(item.hours_spent ?? 0),
+              progress_percentage: String(item.progress_percentage ?? 0),
               status: item.status as DailyUpdateItemStatus,
             };
           });
@@ -153,7 +154,7 @@ export const DailyTrackerPage: React.FC = () => {
 
   const handleItemFormChange = (
     assignmentId: string,
-    field: keyof typeof itemForms[string],
+    field: keyof ItemFormState,
     value: any
   ) => {
     setItemForms(prev => ({
@@ -165,32 +166,73 @@ export const DailyTrackerPage: React.FC = () => {
     }));
   };
 
-  // Helper to build payload
-  const buildItemsPayload = (): DailyUpdateItemCreate[] => {
-    return selectedAssignments.map(id => {
-      const form = itemForms[id] || {
-        work_description: '',
-        hours_spent: 0,
-        progress_percentage: 0,
-        status: 'in_progress' as DailyUpdateItemStatus,
-      };
-      return {
+  // Helper to validate and build items payload
+  const validateAndBuildItemsPayload = (): { valid: boolean; items?: DailyUpdateItemCreate[]; error?: string } => {
+    const items: DailyUpdateItemCreate[] = [];
+
+    for (const id of selectedAssignments) {
+      const form = itemForms[id];
+      const assign = assignments.find(a => a.assignment_id === id);
+      const taskTitle = assign?.task_title ? `"${assign.task_title}"` : 'selected task';
+
+      if (!form) {
+        return { valid: false, error: `Missing work details for ${taskTitle}.` };
+      }
+
+      // 1. Validate Hours Spent
+      const hoursTrimmed = String(form.hours_spent ?? '').trim();
+      if (hoursTrimmed === '') {
+        return { valid: false, error: `Please enter hours spent for ${taskTitle}.` };
+      }
+      const parsedHours = Number(hoursTrimmed);
+      if (isNaN(parsedHours)) {
+        return { valid: false, error: `Hours spent for ${taskTitle} must be a valid number.` };
+      }
+      if (parsedHours < 0) {
+        return { valid: false, error: `Hours spent for ${taskTitle} cannot be negative.` };
+      }
+      if (parsedHours > 24) {
+        return { valid: false, error: `Hours spent for ${taskTitle} cannot exceed 24 hours.` };
+      }
+
+      // 2. Validate Task Progress (%)
+      const progressTrimmed = String(form.progress_percentage ?? '').trim();
+      if (progressTrimmed === '') {
+        return { valid: false, error: `Please enter task progress percentage for ${taskTitle}.` };
+      }
+      const parsedProgress = Number(progressTrimmed);
+      if (isNaN(parsedProgress)) {
+        return { valid: false, error: `Task progress for ${taskTitle} must be a valid number.` };
+      }
+      if (parsedProgress < 0 || parsedProgress > 100) {
+        return { valid: false, error: `Task progress for ${taskTitle} must be between 0 and 100.` };
+      }
+
+      items.push({
         assignment_id: id,
         work_description: form.work_description || '',
-        hours_spent: Number(form.hours_spent) || 0,
-        progress_percentage: Number(form.progress_percentage) || 0,
+        hours_spent: parsedHours,
+        progress_percentage: parsedProgress,
         status: form.status || 'in_progress',
-      };
-    });
+      });
+    }
+
+    return { valid: true, items };
   };
 
   // Save as Draft
   const handleSaveDraft = async () => {
-    setSaving(true);
     setSuccess(null);
     setError(null);
 
-    const itemsPayload = buildItemsPayload();
+    const validation = validateAndBuildItemsPayload();
+    if (!validation.valid || !validation.items) {
+      setError(validation.error || 'Please correct errors in task items before saving.');
+      return;
+    }
+
+    setSaving(true);
+    const itemsPayload = validation.items;
 
     try {
       if (todayUpdate) {
@@ -210,6 +252,7 @@ export const DailyTrackerPage: React.FC = () => {
       } else {
         // Create new daily update draft
         const res = await api.post<DailyUpdateResponse>('/daily-updates', {
+          work_date: todayDateStr,
           update_date: todayDateStr,
           summary,
           completed_work: completedWork,
@@ -233,11 +276,17 @@ export const DailyTrackerPage: React.FC = () => {
 
   // Submit Daily Update
   const handleSubmitUpdate = async () => {
-    setSaving(true);
     setSuccess(null);
     setError(null);
 
-    const itemsPayload = buildItemsPayload();
+    const validation = validateAndBuildItemsPayload();
+    if (!validation.valid || !validation.items) {
+      setError(validation.error || 'Please correct errors in task items before submitting.');
+      return;
+    }
+
+    setSaving(true);
+    const itemsPayload = validation.items;
 
     try {
       let currentUpdate = todayUpdate;
@@ -245,6 +294,7 @@ export const DailyTrackerPage: React.FC = () => {
       if (!currentUpdate) {
         // Create draft first
         const createRes = await api.post<DailyUpdateResponse>('/daily-updates', {
+          work_date: todayDateStr,
           update_date: todayDateStr,
           summary,
           completed_work: completedWork,
@@ -302,7 +352,12 @@ export const DailyTrackerPage: React.FC = () => {
 
       // Auto-save draft if update doesn't exist yet
       if (!updateId) {
-        const itemsPayload = buildItemsPayload();
+        const validation = validateAndBuildItemsPayload();
+        if (!validation.valid || !validation.items) {
+          setError(validation.error || 'Please enter valid task details before uploading attachments.');
+          return;
+        }
+        const itemsPayload = validation.items;
         const createRes = await api.post<DailyUpdateResponse>('/daily-updates', {
           update_date: todayDateStr,
           summary,
@@ -371,7 +426,7 @@ export const DailyTrackerPage: React.FC = () => {
       {/* 1. TOP HEADER */}
       <PageHeader
         title="Today's Daily Tracker"
-        subtitle={`Date: ${todayFormatted}`}
+        subtitle={`Work Date: ${todayFormatted}`}
         badgeText="Daily Workflow"
       />
 
@@ -587,9 +642,16 @@ export const DailyTrackerPage: React.FC = () => {
                       {isSelected && <Check className="w-3.5 h-3.5" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[11px] font-mono font-bold text-[#991b1f] block">
-                        {assign.task_code}
-                      </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-mono font-bold text-[#991b1f] block">
+                          {assign.task_code}
+                        </span>
+                        {assign.due_date && (
+                          <span className="text-[10px] text-stone-500 font-medium">
+                            Due: {formatDate(assign.due_date)}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs font-bold text-stone-800 block truncate mt-0.5">
                         {assign.task_title}
                       </span>
@@ -621,13 +683,20 @@ export const DailyTrackerPage: React.FC = () => {
                 <Card key={assignId} className="overflow-hidden">
                   {/* Task Header */}
                   <CardHeader className="py-3 bg-[#fff8f3] border-b border-[#efe7e1]">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xs font-mono font-bold text-[#991b1f] bg-[#fff3ea] px-2 py-0.5 rounded-md border border-[#ffe1c5]">
-                        {assign.task_code}
-                      </span>
-                      <h4 className="text-xs font-bold text-stone-900 truncate">
-                        {assign.task_title}
-                      </h4>
+                    <div className="flex items-center justify-between gap-2.5 w-full">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xs font-mono font-bold text-[#991b1f] bg-[#fff3ea] px-2 py-0.5 rounded-md border border-[#ffe1c5]">
+                          {assign.task_code}
+                        </span>
+                        <h4 className="text-xs font-bold text-stone-900 truncate">
+                          {assign.task_title}
+                        </h4>
+                      </div>
+                      {assign.due_date && (
+                        <span className="text-[11px] font-semibold text-stone-500 shrink-0">
+                          Task Due Date: <strong className="text-stone-700">{formatDate(assign.due_date)}</strong>
+                        </span>
+                      )}
                     </div>
                   </CardHeader>
 
@@ -650,32 +719,44 @@ export const DailyTrackerPage: React.FC = () => {
                     {/* Hours Spent, Task Progress (%), and Status */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">
+                        <label
+                          htmlFor={`hours-spent-${assignId}`}
+                          className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5"
+                        >
                           HOURS SPENT
                         </label>
                         <input
+                          id={`hours-spent-${assignId}`}
+                          aria-label="HOURS SPENT"
                           type="number"
                           step="0.5"
                           min="0"
                           max="24"
+                          inputMode="decimal"
                           disabled={isReadOnly}
-                          value={form.hours_spent}
-                          onChange={(e) => handleItemFormChange(assignId, 'hours_spent', Number(e.target.value))}
+                          value={form.hours_spent ?? ''}
+                          onChange={(e) => handleItemFormChange(assignId, 'hours_spent', e.target.value)}
                           className="block w-full p-2.5 text-xs bg-[#faf7f5] border border-[#efe7e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffe1c5] focus:border-[#991b1f] disabled:opacity-75 text-stone-900"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">
+                        <label
+                          htmlFor={`task-progress-${assignId}`}
+                          className="block text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5"
+                        >
                           TASK PROGRESS (%)
                         </label>
                         <input
+                          id={`task-progress-${assignId}`}
+                          aria-label="TASK PROGRESS (%)"
                           type="number"
                           min="0"
                           max="100"
+                          inputMode="numeric"
                           disabled={isReadOnly}
-                          value={form.progress_percentage}
-                          onChange={(e) => handleItemFormChange(assignId, 'progress_percentage', Number(e.target.value))}
+                          value={form.progress_percentage ?? ''}
+                          onChange={(e) => handleItemFormChange(assignId, 'progress_percentage', e.target.value)}
                           className="block w-full p-2.5 text-xs bg-[#faf7f5] border border-[#efe7e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffe1c5] focus:border-[#991b1f] disabled:opacity-75 text-stone-900"
                         />
                       </div>

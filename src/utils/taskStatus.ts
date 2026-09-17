@@ -26,7 +26,7 @@ export const getDueDateIndicator = (
 
   const normalizedStatus = (taskStatus || '').toLowerCase();
   const isCompleted = normalizedStatus === 'completed' || completionPercentage === 100;
-  if (isCompleted || normalizedStatus === 'dropped' || normalizedStatus === 'cancelled') {
+  if (isCompleted || normalizedStatus === 'dropped' || normalizedStatus === 'cancelled' || normalizedStatus === 'archived') {
     return null;
   }
 
@@ -101,7 +101,7 @@ export const computeProgressFromStatus = (
   return currentProgress;
 };
 
-export type TaskLifecycleStatus = 'pending' | 'in_progress' | 'completed' | 'dropped' | 'cancelled';
+export type TaskLifecycleStatus = 'pending' | 'in_progress' | 'completed' | 'dropped' | 'cancelled' | 'archived';
 
 /**
  * Normalizes any task status string or variant to standard lowercase format.
@@ -127,6 +127,9 @@ export const getAssignmentLifecycleStatus = (
 
   if (normTaskStatus === 'cancelled') {
     return 'cancelled';
+  }
+  if (normTaskStatus === 'archived') {
+    return 'archived';
   }
   if (normAssignStatus === 'dropped') {
     return 'dropped';
@@ -154,9 +157,9 @@ export const matchesStatusFilter = (
 ): boolean => {
   const normFilter = normalizeStatusString(filter);
   if (!normFilter || normFilter === 'all') {
-    // "All" visible tasks excludes dropped and cancelled
+    // "All" visible tasks excludes dropped, cancelled, and archived
     const lifecycle = getAssignmentLifecycleStatus(assignment);
-    return lifecycle !== 'dropped' && lifecycle !== 'cancelled';
+    return lifecycle !== 'dropped' && lifecycle !== 'cancelled' && lifecycle !== 'archived';
   }
 
   if (normFilter === 'active') {
@@ -175,6 +178,7 @@ export interface TaskLifecycleMetrics {
   completed: number;
   dropped: number;
   cancelled: number;
+  archived?: number;
 }
 
 /**
@@ -192,6 +196,7 @@ export const calculateTaskLifecycleMetrics = (
   let completed = 0;
   let dropped = 0;
   let cancelled = 0;
+  let archived = 0;
 
   for (const a of assignments) {
     const lifecycle = getAssignmentLifecycleStatus(a);
@@ -200,6 +205,7 @@ export const calculateTaskLifecycleMetrics = (
     else if (lifecycle === 'completed') completed++;
     else if (lifecycle === 'dropped') dropped++;
     else if (lifecycle === 'cancelled') cancelled++;
+    else if (lifecycle === 'archived') archived++;
   }
 
   return {
@@ -209,6 +215,7 @@ export const calculateTaskLifecycleMetrics = (
     completed,
     dropped,
     cancelled,
+    archived,
   };
 };
 

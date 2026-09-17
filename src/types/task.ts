@@ -1,5 +1,5 @@
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
-export type TaskStatus = 'open' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskStatus = 'open' | 'in_progress' | 'completed' | 'cancelled' | 'archived';
 export type AssignmentStatus = 'active' | 'completed' | 'dropped';
 
 export interface TaskResponse {

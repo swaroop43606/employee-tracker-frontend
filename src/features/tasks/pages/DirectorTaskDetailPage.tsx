@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, NavLink, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Save, CheckSquare, AlertCircle, History, Clock } from 'lucide-react';
 import { api } from '../../../services/api';
 import { PageHeader } from '../../../components/PageHeader';
@@ -13,6 +13,7 @@ import type { UserListItem } from '../../../types/user';
 
 export const DirectorTaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -101,6 +102,12 @@ export const DirectorTaskDetailPage: React.FC = () => {
     loadTaskData();
   }, [id]);
 
+  useEffect(() => {
+    if (searchParams.get('edit') === 'true') {
+      setIsEditing(true);
+    }
+  }, [searchParams]);
+
   // Update task details
   const handleUpdateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +150,7 @@ export const DirectorTaskDetailPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
-      const res = await api.post<TaskAssignmentResponse>(`/tasks/${id}/assignments`, {
+      const res = await api.post<TaskAssignmentResponse>(`/tasks/${id}/assign`, {
         employee_id: selectedEmployee,
         start_date: assignStartDate || null,
         due_date: assignDueDate || null,
@@ -161,6 +168,17 @@ export const DirectorTaskDetailPage: React.FC = () => {
           page_size: 100,
         });
         setAssignments(assignmentsRes.data?.items || []);
+
+        // Refresh task change history
+        try {
+          const historyRes = await api.get<TaskHistoryResponse[]>(`/tasks/${id}/history`);
+          if (historyRes.success && historyRes.data) {
+            setHistory(historyRes.data);
+          }
+        } catch {
+          // Ignore history loading error
+        }
+
         setTimeout(() => setSuccess(null), 3000);
       }
     } catch (err: any) {
@@ -278,6 +296,7 @@ export const DirectorTaskDetailPage: React.FC = () => {
                         <option value="in_progress">In Progress</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
+                        <option value="archived">Archived</option>
                       </select>
                     </div>
 
@@ -309,7 +328,16 @@ export const DirectorTaskDetailPage: React.FC = () => {
               <CardHeader>
                 <h3 className="text-base font-bold text-slate-900">Task Information</h3>
                 <div className="flex gap-2">
-                  <Badge variant={task.status === 'completed' ? 'success' : 'info'} className="uppercase font-bold">
+                  <Badge
+                    variant={
+                      task.status === 'completed'
+                        ? 'success'
+                        : task.status === 'cancelled' || task.status === 'archived'
+                        ? 'neutral'
+                        : 'info'
+                    }
+                    className="uppercase font-bold"
+                  >
                     {task.status}
                   </Badge>
                   <Badge variant="brand" className="uppercase font-bold">
@@ -371,8 +399,18 @@ export const DirectorTaskDetailPage: React.FC = () => {
 
         {/* Right Column: Allocation & Active assignments */}
         <div className="space-y-6">
-          {/* Assignment form */}
-          {task.status !== 'completed' && task.status !== 'cancelled' && (
+          {/* Assignment form or Archived Banner */}
+          {task.status === 'archived' ? (
+            <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-bold text-amber-900">Task Archived</h4>
+                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                  This task is archived and cannot be assigned to new employees.
+                </p>
+              </div>
+            </div>
+          ) : task.status !== 'completed' && task.status !== 'cancelled' ? (
             <Card>
               <CardHeader>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -391,11 +429,16 @@ export const DirectorTaskDetailPage: React.FC = () => {
                       className="block w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                     >
                       <option value="">Choose reporting member...</option>
-                      {team.map(emp => (
-                        <option key={emp.user_id} value={emp.user_id}>
-                          {emp.full_name} ({emp.employee_code})
-                        </option>
-                      ))}
+                      {team.map(emp => {
+                        const isAlreadyAssigned = assignments.some(
+                          a => a.employee_id === emp.user_id && a.status === 'active'
+                        );
+                        return (
+                          <option key={emp.user_id} value={emp.user_id}>
+                            {emp.full_name} ({emp.employee_code}){isAlreadyAssigned ? ' — Already Assigned' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -432,7 +475,7 @@ export const DirectorTaskDetailPage: React.FC = () => {
                 </form>
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
           {/* Active Assignments List */}
           <Card>

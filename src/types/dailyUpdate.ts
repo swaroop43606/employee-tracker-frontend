@@ -10,7 +10,8 @@ export interface DailyUpdateItemCreate {
 }
 
 export interface DailyUpdateCreatePayload {
-  update_date: string;
+  work_date?: string;
+  update_date?: string;
   summary?: string | null;
   completed_work?: string | null;
   next_work_plan?: string | null;
@@ -23,15 +24,16 @@ export interface DailyUpdateItemResponse {
   item_id: string;
   update_id: string;
   assignment_id: string;
-  task_id: string | null;
+  task_id?: string | null;
   task_code: string | null;
   task_title: string | null;
+  task_due_date?: string | null;
   work_description: string | null;
   hours_spent: number;
   progress_percentage: number;
   status: DailyUpdateItemStatus;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DailyUpdateResponse {
@@ -39,6 +41,7 @@ export interface DailyUpdateResponse {
   employee_id: string;
   employee_name: string | null;
   employee_code: string | null;
+  work_date?: string;
   update_date: string;
   summary: string | null;
   completed_work?: string | null;
@@ -59,6 +62,7 @@ export interface DailyUpdateListItem {
   employee_id: string;
   employee_name: string | null;
   employee_code: string | null;
+  work_date?: string;
   update_date: string;
   summary: string | null;
   completed_work?: string | null;
@@ -68,6 +72,7 @@ export interface DailyUpdateListItem {
   items_count: number;
   total_hours: number;
   submitted_at: string | null;
+  reviewed_at?: string | null;
   created_at: string;
   employee_updated_at?: string | null;
 }

@@ -572,7 +572,7 @@ export const DirectorDashboard: React.FC = () => {
                         )}
                         <span className="text-xs text-slate-400">•</span>
                         <span className="text-xs font-medium text-slate-600">
-                          {formatDate(item.update_date)}
+                          {formatDate(item.work_date || item.update_date)}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 truncate mt-0.5">

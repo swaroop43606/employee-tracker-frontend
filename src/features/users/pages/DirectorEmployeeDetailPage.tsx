@@ -17,6 +17,7 @@ import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { ErrorState } from '../../../components/Feedback';
+import { formatDate, formatDateTime } from '../../../utils/date';
 import type { UserListItem } from '../../../types/user';
 import type { TaskAssignmentResponse } from '../../../types/task';
 import type { DailyUpdateListItem } from '../../../types/dailyUpdate';
@@ -230,11 +231,8 @@ export const DirectorEmployeeDetailPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-slate-400" />
                           <span className="font-bold text-slate-800">
-                            {new Date(up.update_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
+                            <span className="text-slate-500 font-semibold text-xs mr-1">Work Date:</span>
+                            {formatDate(up.work_date || up.update_date)}
                           </span>
                           <Badge
                             variant={up.overall_status === 'reviewed' ? 'success' : up.overall_status === 'submitted' ? 'info' : 'neutral'}
@@ -246,6 +244,17 @@ export const DirectorEmployeeDetailPage: React.FC = () => {
                         <p className="text-slate-500 line-clamp-1 text-[11px] max-w-lg">
                           {up.summary || 'No summary comments recorded.'}
                         </p>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                          <span>Total Hours: {up.total_hours} hrs</span>
+                          {up.submitted_at && (
+                            <>
+                              <span>•</span>
+                              <span>Submitted: {formatDateTime(up.submitted_at)}</span>
+                            </>
+                          )}
+                          <span>•</span>
+                          <span>Last updated: {formatDateTime(up.employee_updated_at || up.created_at)}</span>
+                        </div>
                       </div>
 
                       <NavLink to={`/director/daily-updates/${up.update_id}`}>

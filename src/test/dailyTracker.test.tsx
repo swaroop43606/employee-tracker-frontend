@@ -185,13 +185,14 @@ describe('Daily Update Workflow & Utilities', () => {
       vi.restoreAllMocks();
     });
 
-    it('renders "Last updated: <timestamp>" on Employee Update History cards', async () => {
+    it('renders "Last updated by employee: <timestamp>" on Employee Update History cards', async () => {
       const mockUpdateItem: DailyUpdateListItem = {
         update_id: 'up-101',
         employee_id: 'emp-101',
         employee_name: 'John Doe',
         employee_code: 'EMP001',
         update_date: '2026-09-09',
+        work_date: '2026-09-09',
         summary: 'Completed daily goals',
         overall_status: 'submitted',
         items_count: 2,
@@ -225,7 +226,7 @@ describe('Daily Update Workflow & Utilities', () => {
         },
       });
 
-      expect(await screen.findByText(/Last updated: Sep 9, 2026/i)).toBeInTheDocument();
+      expect(await screen.findByText(/Last updated by employee:/i)).toBeInTheDocument();
     });
 
     it('renders "Last updated by employee: <timestamp>" on Director Review Queue cards', async () => {
@@ -273,13 +274,14 @@ describe('Daily Update Workflow & Utilities', () => {
       expect(await screen.findByText(/Last updated by employee:/i)).toBeInTheDocument();
     });
 
-    it('renders separate metadata for Update Date, Submitted, and Last Updated by Employee in Director Review Details', async () => {
+    it('renders separate metadata for Work Date, Submitted, and Last Updated by Employee in Director Review Details', async () => {
       const mockDetail: DailyUpdateResponse = {
         update_id: 'up-303',
         employee_id: 'emp-101',
         employee_name: 'John Doe',
         employee_code: 'EMP001',
         update_date: '2026-09-09',
+        work_date: '2026-09-09',
         summary: 'Reviewable daily work',
         completed_work: 'Completed phase 6 backend tasks',
         next_work_plan: 'Phase 7 frontend tests',
@@ -323,7 +325,7 @@ describe('Daily Update Workflow & Utilities', () => {
       // Verify Submission Details card and distinct metadata fields exist
       expect(await screen.findByText('Submission Details')).toBeInTheDocument();
       expect(screen.getAllByText(/Last Updated by Employee/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Update Date/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Work Date/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Submitted/i).length).toBeGreaterThan(0);
     });
   });
